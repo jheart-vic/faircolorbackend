@@ -1,5 +1,5 @@
 import express from "express";
-import { approveCustomer, createCustomer, getCustomers } from "../controllers/customerController.js";
+import { approveCustomer, createCustomer, getCustomerBalance, getCustomers } from "../controllers/customerController.js";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
 
@@ -10,21 +10,31 @@ const router = express.Router();
  * @swagger
  * /api/customers:
  *   get:
- *     summary: Get all customers (Admin & Cashier)
- *     description: Fetch customers with pagination and optional filters
+ *     summary: Get customers (Admin & Cashier)
+ *     description: |
+ *       Fetch customers with pagination and optional filters.
+ *
+ *       **Access Control:**
+ *       - Admin → Can view all customers
+ *       - Cashier → Can only view customers they created or assigned to them
+ *
  *     tags:
  *       - Customers
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
+ *           default: 1
  *           example: 1
  *         description: Page number
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *           default: 10
  *           example: 10
  *         description: Number of records per page
  *       - in: query
@@ -32,7 +42,7 @@ const router = express.Router();
  *         schema:
  *           type: string
  *           example: John
- *         description: Search by first name or last name
+ *         description: Search by full name
  *       - in: query
  *         name: phone
  *         schema:
@@ -57,17 +67,33 @@ const router = express.Router();
  *                     properties:
  *                       _id:
  *                         type: string
- *                       firstName:
- *                         type: string
- *                       lastName:
+ *                       fullName:
  *                         type: string
  *                       phone:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                         enum: [pending, approved]
+ *                       publicId:
  *                         type: string
  *                       createdBy:
  *                         type: object
  *                         properties:
- *                           name:
+ *                           fullName:
  *                             type: string
+ *                           publicId:
+ *                             type: string
+ *                       assignedTo:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           fullName:
+ *                             type: string
+ *                           publicId:
+ *                             type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
  *                 pagination:
  *                   type: object
  *                   properties:
@@ -83,6 +109,10 @@ const router = express.Router();
  *                     pages:
  *                       type: integer
  *                       example: 10
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Invalid role)
  *       500:
  *         description: Server error
  */
@@ -165,6 +195,25 @@ router.patch(
   protect,
   authorize("admin"),
   approveCustomer
+);
+
+/**
+ * @swagger
+ * /api/customers/{customerId}/balance:
+ *   get:
+ *     summary: Get customer balance
+ *     description: |
+ *       - Admin → can view any customer balance
+ *       - Cashier → can only view balances of customers they own
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+  "/:customerId/balance",
+  protect,
+  authorize("admin", "cashier"),
+  getCustomerBalance
 );
 
 export default router;

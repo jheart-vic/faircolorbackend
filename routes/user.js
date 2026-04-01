@@ -1,5 +1,5 @@
 import express from "express";
-import { createCashier, getCashiers } from "../controllers/userController.js";
+import { createCashier, getCashiers, transferCustomerController } from "../controllers/userController.js";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
 
@@ -65,7 +65,7 @@ router.post(
  * @swagger
  * /api/cashiers:
  *   get:
- *     summary: Get all cashiers
+ *     summary: Get all cashiers(admin only)
  *     description: Fetch cashiers with pagination and optional filters
  *     tags:
  *       - Users
@@ -133,6 +133,69 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.get("/", protect, authorize("admin", "cashier"), getCashiers);
+router.get("/", protect, authorize("admin"), getCashiers);
+
+/**
+ * @swagger
+ * /api/users/transfer:
+ *   put:
+ *     summary: Transfer a customer to another cashier
+ *     description: Admin can reassign a customer from one cashier to another
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - customerId
+ *               - newCashierId
+ *             properties:
+ *               customerId:
+ *                 type: string
+ *                 example: "CUS_123456"
+ *               newCashierId:
+ *                 type: string
+ *                 example: "CASH_654321"
+ *     responses:
+ *       200:
+ *         description: Customer transferred successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Customer transferred successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     fullName:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     createdBy:
+ *                       type: string
+ *       400:
+ *         description: Bad request (invalid input or same cashier)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Admin only)
+ *       404:
+ *         description: Customer or cashier not found
+ */
+router.put(
+  "/transfer",
+  protect,
+  authorize("admin"),
+  transferCustomerController
+);
 
 export default router;

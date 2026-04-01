@@ -59,7 +59,8 @@ transactionSchema.pre("save", function (next) {
   }
   next();
 });
+
 // Index for fast dashboard queries
-transactionSchema.index({ createdAt: 1, type: 1 });
+transactionSchema.index({ customerId: 1, status: 1, type: 1, createdAt: 1 });
 
 export default mongoose.model("Transaction", transactionSchema);

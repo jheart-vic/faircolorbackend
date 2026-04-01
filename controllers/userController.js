@@ -26,3 +26,19 @@ export async function getCashiers(req, res, next) {
     next(err);
   }
 }
+
+export async function transferCustomerController(req, res) {
+  const { customerId, newCashierId } = req.body;
+
+  const result = await userService.transferCustomer(
+    customerId,
+    newCashierId,
+    req.user._id
+  );
+
+  res.json({
+    message: "Customer transferred successfully",
+    data: result,
+  });
+}
+

@@ -36,8 +36,13 @@ const customerSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
             required: true,
+           index: true,
         },
-
+        assignedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        index: true,
+        },
         approvedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',

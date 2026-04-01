@@ -1,6 +1,7 @@
 import Transaction from "../models/Transaction.js";
 import Customer from "../models/Customer.js";
 import AuditLog from "../models/AuditLog.js";
+import { getCustomerBalance } from "./customerService.js";
 
 async function createTransaction(type, payload, cashierId) {
   const { customerId, amount, note } = payload;
@@ -13,7 +14,10 @@ async function createTransaction(type, payload, cashierId) {
     throw new Error("Amount must be greater than 0");
   }
 
-  const customer = await Customer.findById(customerId);
+  // 🔍 Ensure customer exists (support both publicId and _id)
+  const customer =
+    (await Customer.findOne({ publicId: customerId })) ||
+    (await Customer.findById(customerId));
 
   if (!customer) throw new Error("Customer not found");
 
@@ -21,15 +25,26 @@ async function createTransaction(type, payload, cashierId) {
     throw new Error("Customer not approved");
   }
 
+  // 💰 BALANCE CHECK (ONLY FOR WITHDRAWALS)
+  if (type === "withdrawal") {
+    const balanceData = await getCustomerBalance(customer._id);
+
+    if (amount > balanceData.balance) {
+      throw new Error("Insufficient balance");
+    }
+  }
+
+  // 🧾 CREATE TRANSACTION
   const transaction = await Transaction.create({
     type,
     amount,
-    customerId,
+    customerId: customer._id,
     cashierId,
     note,
     status: "pending",
   });
 
+  // 🧠 AUDIT LOG
   await AuditLog.create({
     action: `CREATE_${type.toUpperCase()}`,
     performedBy: cashierId,
@@ -41,6 +56,10 @@ async function createTransaction(type, payload, cashierId) {
 
 export async function createDeposit(payload, cashierId) {
   return createTransaction("deposit", payload, cashierId);
+}
+
+export async function createWithdrawal(payload, cashierId) {
+  return createTransaction("withdrawal", payload, cashierId);
 }
 
 export async function getTransactions(query) {

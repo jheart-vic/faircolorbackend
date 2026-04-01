@@ -36,7 +36,7 @@ export async function approveCustomer(req, res, next) {
 
 export async function getCustomers(req, res, next) {
   try {
-    const data = await customerService.getCustomers(req.query);
+    const data = await customerService.getCustomers(req.query, req.user);
 
     res.json({
       success: true,
@@ -47,3 +47,18 @@ export async function getCustomers(req, res, next) {
   }
 }
 
+export async function getCustomerBalance(req, res, next) {
+  try {
+    const data = await customerService.getCustomerBalanceByPublicId(
+      req.params.customerId,
+      req.user
+    );
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
