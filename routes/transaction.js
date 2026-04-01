@@ -68,10 +68,9 @@ router.post(
 );
 
 
-
 /**
  * @swagger
- * /api/transactions/{id}/approve:
+ * /api/transactions/{transactionId}/approve:
  *   patch:
  *     summary: Approve transaction (Admin only)
  *     tags: [Transactions]
@@ -79,7 +78,7 @@ router.post(
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: transactionId
  *         required: true
  *         schema:
  *           type: string
@@ -92,7 +91,7 @@ router.post(
  *         description: Not found
  */
 router.patch(
-  "/:id/approve",
+  "/:transactionId/approve",
   protect,
   authorize("admin"),
   controller.approveTransactionController

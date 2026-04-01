@@ -1,12 +1,13 @@
+import express from "express";
 import * as controller from "../controllers/loanController.js";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
 
-
+const router = express.Router();
 
 /**
  * @swagger
- * /api/transactions/loan:
+ * /api/loans:
  *   post:
  *     summary: Create loan (Cashier only)
  *     tags: [Loans]
@@ -45,7 +46,7 @@ router.post(
 
 /**
  * @swagger
- * /api/loans/{id}/approve:
+ * /api/loans/{loanId}/approve:
  *   patch:
  *     summary: Approve loan (Admin only)
  *     tags: [Loans]
@@ -53,7 +54,7 @@ router.post(
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: loanId
  *         required: true
  *         schema:
  *           type: string

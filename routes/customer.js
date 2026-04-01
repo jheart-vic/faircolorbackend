@@ -10,7 +10,7 @@ const router = express.Router();
  * @swagger
  * /api/customers:
  *   get:
- *     summary: Get all customers
+ *     summary: Get all customers (Admin & Cashier)
  *     description: Fetch customers with pagination and optional filters
  *     tags:
  *       - Customers
