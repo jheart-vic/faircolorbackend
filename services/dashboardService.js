@@ -2,12 +2,13 @@ import Transaction from "../models/Transaction.js";
 import Customer from "../models/Customer.js";
 import { getDateRange } from "../utils/dateFilter.js";
 
-export async function getAdminDashboard(filter) {
-  const dateFilter = getDateRange(filter);
+export async function getAdminDashboard({filter, startDate, endDate, includeDeactivated = false}) {
+  const dateFilter = getDateRange(filter, startDate, endDate);
 
   const match = {
-    status: "approved",
-    createdAt: dateFilter,
+    ...(status && { status }),
+    ...(!status && { status: "approved" }),
+    ...(Object.keys(dateFilter).length && { createdAt: dateFilter }),
   };
 
   const transactions = await Transaction.aggregate([
@@ -21,7 +22,6 @@ export async function getAdminDashboard(filter) {
     },
   ]);
 
-  // Convert to object
   const summary = {
     deposit: 0,
     withdrawal: 0,
@@ -32,14 +32,20 @@ export async function getAdminDashboard(filter) {
     summary[t._id] = t.totalAmount;
   });
 
-  const totalCustomers = await Customer.countDocuments({
-    createdAt: dateFilter,
+  // Filter customers by deactivation
+  const customerFilter = {
     status: "approved",
-  });
+    ...(Object.keys(dateFilter).length && { createdAt: dateFilter }),
+    ...(includeDeactivated ? {} : { isDeactivated: false }),
+  };
+
+  const totalCustomers = await Customer.countDocuments(customerFilter);
 
   const pendingCustomers = await Customer.countDocuments({
     status: "pending",
+    ...(includeDeactivated ? {} : { isDeactivated: false }),
   });
+
 
   const pendingTransactions = await Transaction.countDocuments({
     status: "pending",
@@ -65,7 +71,7 @@ export async function getCashierDashboard(userId, filter) {
   const match = {
     cashierId: userId,
     status: "approved",
-    createdAt: dateFilter,
+    ...(Object.keys(dateFilter).length && { createdAt: dateFilter }),
   };
 
   const transactions = await Transaction.aggregate([
@@ -89,10 +95,13 @@ export async function getCashierDashboard(userId, filter) {
     summary[t._id] = t.totalAmount;
   });
 
-  const customersCreated = await Customer.countDocuments({
+  const customerFilter = {
     createdBy: userId,
-    createdAt: dateFilter,
-  });
+    ...(Object.keys(dateFilter).length && { createdAt: dateFilter }),
+     isDeactivated: false,
+  };
+
+  const customersCreated = await Customer.countDocuments(customerFilter);
 
   return {
     cards: {
@@ -103,4 +112,3 @@ export async function getCashierDashboard(userId, filter) {
     },
   };
 }
-

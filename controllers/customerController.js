@@ -62,3 +62,36 @@ export async function getCustomerBalance(req, res, next) {
     next(err);
   }
 }
+
+export async function deactivateCustomer(req, res, next) {
+  try {
+    const data = await customerService.deactivateCustomer(
+      req.params.customerId,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Customer deactivated successfully",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteCustomer(req, res, next) {
+  try {
+    const data = await customerService.deleteCustomer(
+      req.params.customerId,
+      req.user._id
+    );
+res.status(200).json({
+      success: true,
+      message: "Customer deleted successfully",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}

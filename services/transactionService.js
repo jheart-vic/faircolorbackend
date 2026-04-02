@@ -136,7 +136,7 @@ export async function rejectTransaction(transactionId, adminId) {
   if (!transaction) throw new Error("Transaction not found");
 
   transaction.status = "rejected";
-  transaction.approvedBy = adminId;
+  transaction.rejectedBy = adminId;
 
   await transaction.save();
 

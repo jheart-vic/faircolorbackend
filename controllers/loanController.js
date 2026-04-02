@@ -30,6 +30,22 @@ export async function approveLoan(req, res, next) {
   }
 }
 
+export async function rejectLoan(req, res, next) {
+  try {
+    const data = await loanService.rejectLoan(
+      req.params.loanId,
+      req.user._id
+    );
+    res.json({
+      success: true,
+      message: "Loan rejected successfully",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getLoans(req, res, next) {
   try {
     const data = await loanService.getLoans(req.query);

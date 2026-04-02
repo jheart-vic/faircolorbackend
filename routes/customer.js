@@ -1,5 +1,5 @@
 import express from "express";
-import { approveCustomer, createCustomer, getCustomerBalance, getCustomers } from "../controllers/customerController.js";
+import { approveCustomer, createCustomer, deactivateCustomer, deleteCustomer, getCustomerBalance, getCustomers } from "../controllers/customerController.js";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
 
@@ -49,6 +49,18 @@ const router = express.Router();
  *           type: string
  *           example: 0803
  *         description: Filter by phone number
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved]
+ *         description: Filter by customer status
+ *       - in: query
+ *         name: includeDeactivated
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Include deactivated customers in the results
  *     responses:
  *       200:
  *         description: Customers fetched successfully
@@ -160,8 +172,7 @@ router.post(
   "/",
   protect,
   authorize("admin", "cashier"),
-  createCustomer
-);
+  createCustomer );
 
 /**
  * @swagger
@@ -196,6 +207,72 @@ router.patch(
   authorize("admin"),
   approveCustomer
 );
+
+/**
+ * @swagger
+ * /api/customers/{customerId}/deactivate:
+ *   patch:
+ *     summary: Deactivate customer (Admin only)
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     responses:
+ *       200:
+ *         description: Customer deactivated successfully
+ *       404:
+ *         description: Customer not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.patch(
+  "/:customerId/deactivate",
+  protect,
+  authorize("admin"),
+  deactivateCustomer
+);
+
+/**
+ * @swagger
+ * /api/customers/{customerId}/delete:
+ *   delete:
+ *     summary: Hard delete customer (Admin only)
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     responses:
+ *       200:
+ *         description: Customer deleted successfully
+ *       404:
+ *         description: Customer not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+*/
+router.delete(
+  "/:customerId/delete",
+  protect,
+  authorize("admin"),
+  deleteCustomer
+);
+
+
 
 /**
  * @swagger

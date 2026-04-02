@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 
+const TRANSACTION_PREFIX = {
+  deposit: "DEP",
+  withdrawal: "WDL",
+  loan: "LOAN",
+};
+
 const transactionSchema = new mongoose.Schema(
   {
     type: {
@@ -26,14 +32,18 @@ const transactionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-publicId: {
-  type: String,
-  unique: true,
-  index: true,
-  required: true,
-},
+    publicId: {
+      type: String,
+      unique: true,
+      index: true,
+      required: true,
+    },
 
     approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    rejectedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
@@ -44,7 +54,10 @@ publicId: {
       default: "pending",
       index: true,
     },
-
+    loanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Loan",
+    },
     note: {
       type: String,
       trim: true,
@@ -55,7 +68,9 @@ publicId: {
 
 transactionSchema.pre("save", function (next) {
   if (!this.publicId) {
-    this.publicId = generatePublicId("TRX");
+    const typePrefix = TRANSACTION_PREFIX[this.type] || "GEN";
+
+    this.publicId = generatePublicId(`TRX-${typePrefix}`);
   }
   next();
 });

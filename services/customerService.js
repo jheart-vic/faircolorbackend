@@ -31,7 +31,7 @@ export async function createCustomer(payload, userId) {
   return customer;
 }
 
-export async function getCustomers(query, user) {
+export async function getCustomers(query, user,  includeDeactivated = false) {
   const {
     page = 1,
     limit = 10,
@@ -47,6 +47,11 @@ export async function getCustomers(query, user) {
       { createdBy: user._id },     // customers they created
       { assignedTo: user._id },    // customers assigned to them (future-proof)
     ];
+  }
+
+  // Include soft-deleted only if admin wants
+  if (!includeDeactivated) {
+    filter.isDeactivated = false;
   }
 
   // 🔍 SEARCH
@@ -208,4 +213,45 @@ export async function getCustomerBalanceByPublicId(customerId, user) {
   }
 
   return getCustomerBalance(customer._id);
+}
+
+export async function deleteCustomer(customerId, user) {
+  const customer = await Customer.findOne({ publicId: customerId });
+  if (!customer) throw new Error("Customer not found");
+
+  // Only admin
+  if (user.role !== "admin") {
+    throw new Error("Not authorized to delete this customer");
+  }
+
+  // This triggers the pre('remove') hook automatically
+  await customer.remove();
+
+  // Log deletion
+  await AuditLog.create({
+    action: "DELETE_CUSTOMER",
+    performedBy: user._id,
+    targetId: customer._id,
+  });
+
+  return true;
+}
+
+export async function deactivateCustomer(customerId, adminUser) {
+  if (adminUser.role !== "admin") throw new Error("Only admin can deactivate customers");
+
+  const customer = await Customer.findOne({ publicId: customerId });
+  if (!customer) throw new Error("Customer not found");
+
+  customer.isDeactivated = true;
+  customer.deactivatedAt = new Date();
+  await customer.save();
+
+  await AuditLog.create({
+    action: "DEACTIVATE_CUSTOMER",
+    performedBy: adminUser._id,
+    targetId: customer._id,
+  });
+
+  return true;
 }

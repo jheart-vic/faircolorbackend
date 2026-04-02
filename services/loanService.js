@@ -53,9 +53,11 @@ export async function approveLoan(loanId, adminId) {
     type: "loan",
     amount: loan.amount,
     customerId: loan.customerId,
-    cashierId: loan.createdBy, // or store original cashier if needed
+    cashierId: loan.createdBy,
     approvedBy: adminId,
     status: "approved",
+    note: `Loan disbursed  for (${loan.publicId})`,
+    loanId: loan._id,
   });
 
   await AuditLog.create({
@@ -119,4 +121,24 @@ if (customerId) {
       pages: Math.ceil(total / limit),
     },
   };
+}
+
+export async function rejectLoan(loanId, adminId) {
+  const loan = await Loan.findOne({ publicId: loanId });
+
+  if (!loan) throw new Error("Loan not found");
+
+
+  if (loan.status !== "pending") {
+    throw new Error("Loan already processed");
+  }
+  loan.status = "rejected";
+  loan.rejectedBy = adminId;
+  await loan.save();
+  await AuditLog.create({
+    action: "REJECT_LOAN",
+    performedBy: adminId,
+    targetId: loan.publicId,
+  });
+  return loan;
 }

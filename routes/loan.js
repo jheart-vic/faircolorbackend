@@ -75,6 +75,35 @@ router.patch(
 
 /**
  * @swagger
+ * /api/loans/{loanId}/reject:
+ *   patch:
+ *     summary: Reject loan (Admin only)
+ *     tags: [Loans]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: loanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Loan rejected
+ *       400:
+ *         description: Already processed
+ *       404:
+ *         description: Loan not found
+ */
+router.patch(
+  "/:loanId/reject",
+  protect,
+  authorize("admin"),
+  controller.rejectLoan
+);
+
+/**
+ * @swagger
  * /api/loans:
  *   get:
  *     summary: Get all loans (Admin only)
