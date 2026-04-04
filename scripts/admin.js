@@ -15,9 +15,9 @@ async function seedAdmin() {
   }
 
   await User.create({
-    name: "Super Admin",
-    email: "admin@faircolours.com",
-    password: "123456",
+    fullName: "Super Admin",
+    email: "admin@faircolors.com",
+    password: "faircolorAdmin@6206",
     role: "admin",
   });
 

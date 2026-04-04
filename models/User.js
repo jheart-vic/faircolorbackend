@@ -1,5 +1,12 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { generatePublicId } from "../utils/publicId.js";
+
+const ROLE_PREFIX = {
+  cashier: "CASH",
+  staff: "STF",
+  manager: "MGR",
+};
 
 const userSchema = new mongoose.Schema(
     {
@@ -33,7 +40,7 @@ const userSchema = new mongoose.Schema(
             type: String,
             unique: true,
             index: true,
-            required: true,
+            required: false,
         },
         isActive: {
             type: Boolean,
@@ -51,8 +58,9 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.pre("save", function (next) {
-  if (!this.publicId) {
-    this.publicId = generatePublicId("CASH");
+  if (!this.publicId && this.role !== "admin") {
+    const prefix = ROLE_PREFIX[this.role]
+    this.publicId = generatePublicId(prefix);
   }
   next();
 });

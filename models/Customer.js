@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { generatePublicId } from "../utils/publicId.js";
 
 const customerSchema = new mongoose.Schema(
     {
