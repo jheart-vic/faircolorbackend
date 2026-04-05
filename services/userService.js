@@ -3,15 +3,15 @@ import AuditLog from "../models/AuditLog.js";
 import Customer from "../models/Customer.js";
 
 export async function createCashier(payload, adminId) {
-  const { name, email, password } = payload;
+  const { fullName, email, password } = payload;
 
-  const existing = await User.findOne({ email });
+  const existing = await User.findOne({ email }).select("publicId");
   if (existing) {
     throw new Error("Email already in use");
   }
 
   const cashier = await User.create({
-    name,
+    fullName,
     email: email.toLowerCase().trim(),
     password,
     role: "cashier",
@@ -26,9 +26,10 @@ export async function createCashier(payload, adminId) {
 
   return {
     id: cashier._id,
-    name: cashier.name,
+    fullName: cashier.fullName,
     email: cashier.email,
     role: cashier.role,
+    publicId: cashier.publicId,
   };
 }
 

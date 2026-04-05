@@ -19,6 +19,7 @@ export async function createCustomer(payload, userId) {
     address,
     createdBy: userId,
     status: "pending",
+   publicId:existing ? existing.publicId : undefined, // reuse publicId if customer was soft-deleted
   });
 
   // Audit log

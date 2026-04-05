@@ -10,6 +10,9 @@ export async function loginUser(payload) {
   if (!user) {
     throw new Error("Invalid email or password");
   }
+if(!user.role){
+    throw new Error("Access denied");
+}
 
   if (!user.isActive) {
     throw new Error("Account is disabled");
@@ -27,7 +30,7 @@ export async function loginUser(payload) {
     token,
     user: {
       id: user._id,
-      name: user.name,
+      fullName: user.fullName,
       role: user.role,
     },
   };

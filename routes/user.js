@@ -7,7 +7,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/cashiers:
+ * /api/users/cashiers:
  *   post:
  *     summary: Create a cashier (Admin only)
  *     tags: [Users]
@@ -63,7 +63,7 @@ router.post(
 
 /**
  * @swagger
- * /api/cashiers:
+ * /api/users/cashiers:
  *   get:
  *     summary: Get all cashiers(admin only)
  *     description: Fetch cashiers with pagination and optional filters
