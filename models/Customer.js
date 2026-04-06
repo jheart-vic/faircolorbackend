@@ -13,8 +13,9 @@ const customerSchema = new mongoose.Schema(
 
         phone: {
             type: String,
-            required: true,
+            required: false,
             unique: true,
+            index: true,
         },
 
         address: {
@@ -33,6 +34,7 @@ const customerSchema = new mongoose.Schema(
             unique: true,
             index: true,
             required: true,
+            // default: () => generatePublicId('CUS'),
         },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
@@ -44,6 +46,7 @@ const customerSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
             index: true,
+          default:null
         },
         approvedBy: {
             type: mongoose.Schema.Types.ObjectId,
@@ -53,7 +56,7 @@ const customerSchema = new mongoose.Schema(
     { timestamps: true },
 )
 
-customerSchema.pre('save', function (next) {
+customerSchema.pre('validate', function (next) {
     if (!this.publicId) {
         this.publicId = generatePublicId('CUS')
     }

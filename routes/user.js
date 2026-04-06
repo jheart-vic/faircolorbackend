@@ -19,9 +19,9 @@ const router = express.Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [name, email, password]
+ *             required: [fullName, email, password]
  *             properties:
- *               name:
+ *               fullName:
  *                 type: string
  *                 example: John Doe
  *               email:
@@ -30,6 +30,8 @@ const router = express.Router();
  *               password:
  *                 type: string
  *                 example: password123
+ *               phone:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Cashier created successfully
@@ -40,13 +42,12 @@ const router = express.Router();
  *               properties:
  *                 id:
  *                   type: string
- *                 name:
+ *                 fullName:
  *                   type: string
  *                 email:
  *                   type: string
- *                 role:
+ *                 phone:
  *                   type: string
- *                   example: cashier
  *       400:
  *         description: Email already in use
  *       401:
@@ -55,7 +56,7 @@ const router = express.Router();
  *         description: Forbidden (Admin only)
  */
 router.post(
-  "/cashier",
+  "/cashiers",
   protect,
   authorize("admin"),
   createCashier
@@ -133,11 +134,11 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.get("/", protect, authorize("admin"), getCashiers);
+router.get("/cashiers", protect, authorize("admin"), getCashiers);
 
 /**
  * @swagger
- * /api/users/transfer:
+ * /api/users/transfer-customer:
  *   put:
  *     summary: Transfer a customer to another cashier
  *     description: Admin can reassign a customer from one cashier to another
@@ -192,7 +193,7 @@ router.get("/", protect, authorize("admin"), getCashiers);
  *         description: Customer or cashier not found
  */
 router.put(
-  "/transfer",
+  "/transfer-customer",
   protect,
   authorize("admin"),
   transferCustomerController

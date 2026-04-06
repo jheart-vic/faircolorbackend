@@ -7,12 +7,13 @@ import User from "../models/User.js";
 import { formatDateRange, getDateRange } from "../utils/dateFilter.js";
 import { format } from "date-fns";
 import { formatCurrency } from "../utils/currency.js";
+import AppError from "../utils/appError.js";
 
 
 export async function generateCustomerReport(customerId, user, res, query) {
   const { filter, startDate, endDate } = query;
   const customer = await Customer.findOne({ publicId: customerId });
-  if (!customer) throw new Error("Customer not found");
+  if (!customer) throw new AppError("Customer not found", 404);
 
   // 🔐 ACCESS CONTROL
   if (user.role === "cashier") {
@@ -20,7 +21,7 @@ export async function generateCustomerReport(customerId, user, res, query) {
       customer.createdBy.toString() === user._id.toString() ||
       (customer.assignedTo && customer.assignedTo.toString() === user._id.toString());
 
-    if (!isOwner) throw new Error("Not authorized");
+    if (!isOwner) throw new AppError("Not authorized", 403);
   }
 
   const dateFilter = getDateRange(filter, startDate, endDate);
@@ -93,11 +94,11 @@ export async function generateCustomerReport(customerId, user, res, query) {
 }
 
 export async function generateCashierReport(query, adminUser, res) {
-  if (adminUser.role !== "admin") throw new Error("Only admin can generate cashier reports");
+  if (adminUser.role !== "admin") throw new AppError("Only admin can generate cashier reports", 403);
 
   const { cashierId, filter, startDate, endDate } = query;
   const cashier = await User.findOne({ publicId: cashierId });
-  if (!cashier) throw new Error("Cashier not found");
+  if (!cashier) throw new AppError("Cashier not found", 404);
 
   const dateFilter = getDateRange(filter, startDate, endDate);
   const rangeLabel = formatDateRange(filter, startDate, endDate);

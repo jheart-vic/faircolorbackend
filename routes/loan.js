@@ -38,7 +38,7 @@ const router = express.Router();
  *         description: Missing fields or customer not approved
  */
 router.post(
-  "/loan",
+  "/",
   protect,
   authorize("cashier"),
   controller.createLoanController

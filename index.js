@@ -6,6 +6,8 @@ import swaggerUi from "swagger-ui-express";
 import dotenv from 'dotenv';
 import { swaggerSpec } from './swagger/swagger.js';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 
 dotenv.config();
@@ -13,6 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
+app.use(cookieParser());
 app.use(corsOptions);
 app.use(express.json());
 
@@ -28,6 +31,7 @@ app.use(
 );
 
 app.use("/api", router);
+app.use(errorHandler);
 app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
 });

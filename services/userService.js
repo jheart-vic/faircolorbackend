@@ -1,19 +1,31 @@
 import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
 import Customer from "../models/Customer.js";
+import { normalizePhone } from "../utils/normalizePhone.js";
+import { formatCustomer } from "../utils/publicId.js";
 
 export async function createCashier(payload, adminId) {
-  const { fullName, email, password } = payload;
+  const { fullName, email, password, phone } = payload;
 
   const existing = await User.findOne({ email }).select("publicId");
   if (existing) {
     throw new Error("Email already in use");
   }
 
+if (phone) {
+  const normalizedPhone = normalizePhone(phone);
+  const existingPhone = await User.findOne({ phone: normalizedPhone }).select("publicId");
+if (existingPhone) {
+    throw new Error("Phone number already in use");
+  }
+}
+
+const normalizedPhoneNumber = normalizePhone(phone);
   const cashier = await User.create({
     fullName,
     email: email.toLowerCase().trim(),
     password,
+    phone: normalizedPhoneNumber,
     role: "cashier",
   });
 
@@ -30,6 +42,7 @@ export async function createCashier(payload, adminId) {
     email: cashier.email,
     role: cashier.role,
     publicId: cashier.publicId,
+    phone: cashier.phone,
   };
 }
 
@@ -109,5 +122,10 @@ if (customer.createdBy.toString() === newCashierId) {
     },
   });
 
-  return customer;
+  // ✅ Re-fetch with populate after save
+  const populated = await Customer.findById(customer._id)
+    .populate("createdBy", "fullName publicId")
+    .populate("assignedTo", "fullName publicId");
+
+  return formatCustomer(populated);
 }

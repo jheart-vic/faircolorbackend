@@ -4,7 +4,7 @@ export async function createDepositController(req, res, next) {
   try {
     const data = await transactionService.createDeposit(
       req.body,
-      req.user._id
+      req.user
     );
 
     res.status(201).json({ success: true, data });
@@ -17,7 +17,7 @@ export async function createWithdrawalController(req, res, next) {
   try {
     const data = await transactionService.createWithdrawal(
       req.body,
-      req.user._id
+      req.user
     );
 
     res.status(201).json({ success: true, data });
@@ -41,7 +41,7 @@ export async function approveTransactionController(req, res, next) {
 
 export async function getTransactionsController(req, res, next) {
   try {
-    const data = await transactionService.getTransactions(req.query);
+    const data = await transactionService.getTransactions(req.query, req.user);
 
     res.json({ success: true, ...data });
   } catch (err) {

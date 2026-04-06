@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { generatePublicId } from '../utils/publicId.js'
 
 const loanSchema = new mongoose.Schema(
     {
@@ -48,7 +49,7 @@ const loanSchema = new mongoose.Schema(
     { timestamps: true },
 )
 
-loanSchema.pre('save', function (next) {
+loanSchema.pre('validate', function (next) {
     if (!this.publicId) {
         this.publicId = generatePublicId('LOAN')
     }

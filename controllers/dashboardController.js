@@ -5,11 +5,13 @@ export async function getAdminDashboard(req, res, next) {
     const filter = req.query.filter || "monthly";
     const startDate = req.query.startDate;
     const endDate = req.query.endDate;
+    const status = req.query.status;
 
     const data = await dashboardService.getAdminDashboard({
-      filter: filter,
-      startDate: startDate,
-      endDate: endDate,
+      filter,
+      startDate,
+      endDate,
+      status,
     });
 
     res.json({
@@ -24,10 +26,12 @@ export async function getAdminDashboard(req, res, next) {
 export async function getCashierDashboard(req, res, next) {
   try {
     const filter = req.query.filter || "monthly";
+    const status = req.query.status;
 
     const data = await dashboardService.getCashierDashboard(
       req.user._id,
-      filter
+      filter,
+      status
     );
 
     res.json({

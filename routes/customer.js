@@ -146,12 +146,9 @@ router.get("/", protect, authorize("admin", "cashier"), getCustomers);
  *             type: object
  *             required: [firstName, lastName, phone]
  *             properties:
- *               firstName:
+ *               fullName:
  *                 type: string
- *                 example: Victor
- *               lastName:
- *                 type: string
- *                 example: Adebowale
+ *                 example: Victor Jude
  *               phone:
  *                 type: string
  *                 example: 08031234567

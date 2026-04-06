@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { generatePublicId } from "../utils/publicId.js";
 
 const TRANSACTION_PREFIX = {
   deposit: "DEP",
@@ -66,7 +67,7 @@ const transactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-transactionSchema.pre("save", function (next) {
+transactionSchema.pre("validate", function (next) {
   if (!this.publicId) {
     const typePrefix = TRANSACTION_PREFIX[this.type] || "GEN";
 

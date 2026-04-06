@@ -2,6 +2,8 @@ import Customer from "../models/Customer.js";
 import AuditLog from "../models/AuditLog.js";
 import { normalizePhone } from "../utils/normalizePhone.js";
 import Transaction from "../models/Transaction.js";
+import { formatCustomer } from "../utils/publicId.js";
+import AppError from "../utils/appError.js";
 
 export async function createCustomer(payload, userId) {
   const { fullName, phone, address } = payload;
@@ -10,7 +12,7 @@ export async function createCustomer(payload, userId) {
 
   const existing = await Customer.findOne({ phone: normalizedPhone });
   if (existing) {
-    throw new Error("Customer with this phone already exists");
+    throw new AppError("Customer with this phone already exists", 400);
   }
 
   const customer = await Customer.create({
@@ -19,9 +21,9 @@ export async function createCustomer(payload, userId) {
     address,
     createdBy: userId,
     status: "pending",
-   publicId:existing ? existing.publicId : undefined, // reuse publicId if customer was soft-deleted
   });
 
+  await customer.populate({ path: "createdBy", select: "fullName email" });
   // Audit log
   await AuditLog.create({
     action: "CREATE_CUSTOMER",
@@ -29,7 +31,7 @@ export async function createCustomer(payload, userId) {
     targetId: customer._id,
   });
 
-  return customer;
+  return formatCustomer(customer);
 }
 
 export async function getCustomers(query, user,  includeDeactivated = false) {
@@ -140,10 +142,10 @@ export async function getCustomers(query, user,  includeDeactivated = false) {
 export async function approveCustomer(customerId, adminId) {
   const customer = await Customer.findOne({ publicId: customerId });
 
-  if (!customer) throw new Error("Customer not found");
+  if (!customer) throw new AppError("Customer not found", 404);
 
   if (customer.status === "approved") {
-    throw new Error("Customer already approved");
+    throw new AppError("Customer already approved", 400);
   }
 
   customer.status = "approved";
@@ -199,7 +201,7 @@ export async function getCustomerBalance(customerId) {
 export async function getCustomerBalanceByPublicId(customerId, user) {
   const customer = await Customer.findOne({ publicId: customerId });
 
-  if (!customer) throw new Error("Customer not found");
+  if (!customer) throw new AppError("Customer not found", 404);
 
   // 🔐 ACCESS CONTROL
   if (user.role === "cashier") {
@@ -209,7 +211,7 @@ export async function getCustomerBalanceByPublicId(customerId, user) {
         customer.assignedTo.toString() === user._id.toString());
 
     if (!isOwner) {
-      throw new Error("Not authorized to view this customer's balance");
+      throw new AppError("Not authorized to view this customer's balance", 403);
     }
   }
 
@@ -218,11 +220,11 @@ export async function getCustomerBalanceByPublicId(customerId, user) {
 
 export async function deleteCustomer(customerId, user) {
   const customer = await Customer.findOne({ publicId: customerId });
-  if (!customer) throw new Error("Customer not found");
+  if (!customer) throw new AppError("Customer not found", 404);
 
   // Only admin
   if (user.role !== "admin") {
-    throw new Error("Not authorized to delete this customer");
+    throw new AppError("Not authorized to delete this customer", 403);
   }
 
   // This triggers the pre('remove') hook automatically
@@ -238,11 +240,10 @@ export async function deleteCustomer(customerId, user) {
   return true;
 }
 
-export async function deactivateCustomer(customerId, adminUser) {
-  if (adminUser.role !== "admin") throw new Error("Only admin can deactivate customers");
+export async function deactivateCustomer(customerId, adminUser){
 
   const customer = await Customer.findOne({ publicId: customerId });
-  if (!customer) throw new Error("Customer not found");
+  if (!customer) throw new AppError("Customer not found", 404);
 
   customer.isDeactivated = true;
   customer.deactivatedAt = new Date();

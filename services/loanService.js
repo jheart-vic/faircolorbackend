@@ -2,19 +2,20 @@ import Loan from "../models/Loan.js";
 import Customer from "../models/Customer.js";
 import AuditLog from "../models/AuditLog.js";
 import Transaction from "../models/Transaction.js";
+import AppError from "../utils/appError.js";
 
 export async function createLoan(payload, cashierId) {
   const { customerId, amount, interest, duration } = payload;
 
   if (!customerId || !amount || !interest || !duration) {
-    throw new Error("All fields are required");
+    throw new AppError("All fields are required", 400);
   }
 
   const customer = await Customer.findOne({ publicId: customerId });
-  if (!customer) throw new Error("Customer not found");
+  if (!customer) throw new AppError("Customer not found", 404);
 
   if (customer.status !== "approved") {
-    throw new Error("Customer not approved");
+    throw new AppError("Customer not approved", 400);
   }
 
   const loan = await Loan.create({
@@ -38,10 +39,10 @@ export async function createLoan(payload, cashierId) {
 export async function approveLoan(loanId, adminId) {
   const loan = await Loan.findOne({ publicId: loanId });
 
-  if (!loan) throw new Error("Loan not found");
+  if (!loan) throw new AppError("Loan not found", 404);
 
   if (loan.status !== "pending") {
-    throw new Error("Loan already processed");
+    throw new AppError("Loan already processed", 400);
   }
   // Approve loan
   loan.status = "approved";
@@ -126,11 +127,11 @@ if (customerId) {
 export async function rejectLoan(loanId, adminId) {
   const loan = await Loan.findOne({ publicId: loanId });
 
-  if (!loan) throw new Error("Loan not found");
+  if (!loan) throw new AppError("Loan not found", 404);
 
 
   if (loan.status !== "pending") {
-    throw new Error("Loan already processed");
+    throw new AppError("Loan already processed", 400);
   }
   loan.status = "rejected";
   loan.rejectedBy = adminId;

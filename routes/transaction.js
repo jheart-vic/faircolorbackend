@@ -25,6 +25,8 @@ const router = express.Router();
  *               amount:
  *                 type: number
  *                 example: 5000
+ *               note:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Deposit created (pending approval)
@@ -56,6 +58,8 @@ router.post(
  *                 type: string
  *               amount:
  *                 type: number
+ *               note:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Withdrawal created (pending)
