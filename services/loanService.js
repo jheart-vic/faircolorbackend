@@ -11,8 +11,15 @@ export async function createLoan(payload, cashierId) {
     throw new AppError("All fields are required", 400);
   }
 
-  const customer = await Customer.findOne({ publicId: customerId });
-  if (!customer) throw new AppError("Customer not found", 404);
+  // Only allow customers created by or assigned to this cashier
+  const customer = await Customer.findOne({
+    publicId: customerId,
+    $or: [
+      { createdBy: cashierId },
+      { assignedTo: cashierId },
+    ],
+  });
+  if (!customer) throw new AppError("Customer not found or not assigned to you", 404);
 
   if (customer.status !== "approved") {
     throw new AppError("Customer not approved", 400);
@@ -30,26 +37,30 @@ export async function createLoan(payload, cashierId) {
   await AuditLog.create({
     action: "CREATE_LOAN",
     performedBy: cashierId,
-    targetId: loan.publicId,
+    targetId: loan._id,
   });
 
-  return loan;
+  // Return populated loan
+  const populatedLoan = await Loan.findById(loan._id)
+    .populate("customerId", "fullName publicId phone address")
+    .populate("createdBy", "fullName publicId")
+    .select("publicId amount interest duration status createdAt customerId createdBy");
+
+  return populatedLoan;
 }
 
 export async function approveLoan(loanId, adminId) {
   const loan = await Loan.findOne({ publicId: loanId });
-
   if (!loan) throw new AppError("Loan not found", 404);
 
   if (loan.status !== "pending") {
     throw new AppError("Loan already processed", 400);
   }
-  // Approve loan
+
   loan.status = "approved";
   loan.approvedBy = adminId;
   await loan.save();
 
-  // 🔥 Create transaction AFTER approval
   const transaction = await Transaction.create({
     type: "loan",
     amount: loan.amount,
@@ -57,17 +68,30 @@ export async function approveLoan(loanId, adminId) {
     cashierId: loan.createdBy,
     approvedBy: adminId,
     status: "approved",
-    note: `Loan disbursed  for (${loan.publicId})`,
+    note: `Loan disbursed for (${loan.publicId})`,
     loanId: loan._id,
   });
 
   await AuditLog.create({
     action: "APPROVE_LOAN",
     performedBy: adminId,
-    targetId: loan.publicId,
+    targetId: loan._id,
   });
 
-  return { loan, transaction };
+  // Return populated loan and transaction
+  const populatedLoan = await Loan.findById(loan._id)
+    .populate("customerId", "fullName publicId phone address")
+    .populate("createdBy", "fullName publicId")
+    .populate("approvedBy", "fullName publicId")
+    .select("publicId amount interest duration status createdAt customerId createdBy approvedBy");
+
+  const populatedTransaction = await Transaction.findById(transaction._id)
+    .populate("customerId", "fullName publicId phone")
+    .populate("cashierId", "fullName publicId")
+    .populate("approvedBy", "fullName publicId")
+    .select("publicId type amount status note createdAt customerId cashierId approvedBy loanId");
+
+  return { loan: populatedLoan, transaction: populatedTransaction };
 }
 
 export async function getLoans(query) {
@@ -139,7 +163,20 @@ export async function rejectLoan(loanId, adminId) {
   await AuditLog.create({
     action: "REJECT_LOAN",
     performedBy: adminId,
-    targetId: loan.publicId,
+    targetId: loan._id,
   });
-  return loan;
+
+ const populatedLoan = await Loan.findById(loan._id)
+    .populate("customerId", "fullName publicId phone address")
+    .populate("createdBy", "fullName publicId")
+    .populate("approvedBy", "fullName publicId")
+    .select("publicId amount interest duration status createdAt customerId createdBy approvedBy");
+
+  const populatedTransaction = await Transaction.findById(transaction._id)
+    .populate("customerId", "fullName publicId phone")
+    .populate("cashierId", "fullName publicId")
+    .populate("approvedBy", "fullName publicId")
+    .select("publicId type amount status note createdAt customerId cashierId approvedBy loanId");
+
+  return { loan: populatedLoan, transaction: populatedTransaction };
 }

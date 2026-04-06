@@ -1,6 +1,6 @@
 export function formatCurrency(amount) {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-  }).format(amount);
+  const num = parseFloat(amount || 0).toFixed(2);
+  const [integer, decimal] = num.split(".");
+  const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `NGN ${formatted}.${decimal}`; // use NGN text instead of symbol
 }
