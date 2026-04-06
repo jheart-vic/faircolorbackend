@@ -50,7 +50,7 @@ router.get(
  * @swagger
  * /api/reports/cashier-report:
  *   get:
- *     summary: Download cashier financial report (PDF)
+ *     summary: Download cashier financial report (PDF)http://localhost:PORT/api/reports/cashier-report?cashierId=CASH-XXXXXX&filter=monthly
  *     description: |
  *       Admin-only endpoint to generate a cashier statement.
  *
