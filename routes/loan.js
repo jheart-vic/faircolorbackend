@@ -32,7 +32,33 @@ const router = express.Router();
  *                 example: 6
  *     responses:
  *       201:
- *         description: Loan created (pending). Interest rate is automatically applied based on duration (1m=12%, 2m=20%, 3m=25%, 4m=30%, 6m=35%)
+ *         description: Loan created (pending)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 amount:
+ *                   type: number
+ *                   example: 117000
+ *                 interest:
+ *                   type: number
+ *                   description: Auto-applied rate based on duration (1m=12%, 2m=20%, 3m=25%, 4m=30%, 6m=35%)
+ *                   example: 30
+ *                 amountToPay:
+ *                   type: number
+ *                   description: Total repayment amount (amount + interest)
+ *                   example: 152100
+ *                 monthlyPayment:
+ *                   type: number
+ *                   description: Equal monthly installment (amountToPay / duration), rounded
+ *                   example: 38025
+ *                 duration:
+ *                   type: number
+ *                   example: 4
+ *                 status:
+ *                   type: string
+ *                   example: pending
  *       400:
  *         description: Missing fields, invalid duration, or customer not approved
  */
