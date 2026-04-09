@@ -19,23 +19,22 @@ const router = express.Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [customerId, amount, interest, duration]
+ *             required: [customerId, amount, duration]
  *             properties:
  *               customerId:
  *                 type: string
  *               amount:
  *                 type: number
- *               interest:
- *                 type: number
- *                 example: 5
  *               duration:
  *                 type: number
+ *                 description: Loan duration in months (1, 2, 3, 4, or 6)
+ *                 enum: [1, 2, 3, 4, 6]
  *                 example: 6
  *     responses:
  *       201:
- *         description: Loan created (pending)
+ *         description: Loan created (pending). Interest rate is automatically applied based on duration (1m=12%, 2m=20%, 3m=25%, 4m=30%, 6m=35%)
  *       400:
- *         description: Missing fields or customer not approved
+ *         description: Missing fields, invalid duration, or customer not approved
  */
 router.post(
   "/",

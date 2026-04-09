@@ -4,11 +4,27 @@ import AuditLog from "../models/AuditLog.js";
 import Transaction from "../models/Transaction.js";
 import AppError from "../utils/appError.js";
 
-export async function createLoan(payload, cashierId) {
-  const { customerId, amount, interest, duration } = payload;
+const INTEREST_RATES = {
+  1: 12,
+  2: 20,
+  3: 25,
+  4: 30,
+  6: 35,
+};
 
-  if (!customerId || !amount || !interest || !duration) {
+export async function createLoan(payload, cashierId) {
+  const { customerId, amount, duration } = payload;
+
+  if (!customerId || !amount || !duration) {
     throw new AppError("All fields are required", 400);
+  }
+
+  const interestRate = INTEREST_RATES[duration];
+  if (!interestRate) {
+    throw new AppError(
+      `Invalid duration. Allowed durations: ${Object.keys(INTEREST_RATES).join(", ")} month(s)`,
+      400
+    );
   }
 
   // Only allow customers created by or assigned to this cashier
@@ -24,13 +40,17 @@ export async function createLoan(payload, cashierId) {
   if (customer.status !== "approved") {
     throw new AppError("Customer not approved", 400);
   }
+const amountToPay    = amount + (amount * interestRate / 100)
+const monthlyPayment = amountToPay / duration
 
   const loan = await Loan.create({
     customerId: customer._id,
     amount,
     createdBy: cashierId,
-    interest,
+    interest: interestRate,
     duration,
+    amountToPay,
+    monthlyPayment,
     status: "pending",
   });
 
@@ -44,7 +64,7 @@ export async function createLoan(payload, cashierId) {
   const populatedLoan = await Loan.findById(loan._id)
     .populate("customerId", "fullName publicId phone address")
     .populate("createdBy", "fullName publicId")
-    .select("publicId amount interest duration status createdAt customerId createdBy");
+    .select("publicId amount interest amountToPay monthlyPayment duration status createdAt customerId createdBy");
 
   return populatedLoan;
 }
@@ -83,13 +103,13 @@ export async function approveLoan(loanId, adminId) {
     .populate("customerId", "fullName publicId phone address")
     .populate("createdBy", "fullName publicId")
     .populate("approvedBy", "fullName publicId")
-    .select("publicId amount interest duration status createdAt customerId createdBy approvedBy");
+    .select("publicId amount interest  amountToPay monthlyPayment duration status createdAt customerId createdBy approvedBy");
 
   const populatedTransaction = await Transaction.findById(transaction._id)
     .populate("customerId", "fullName publicId phone")
     .populate("cashierId", "fullName publicId")
     .populate("approvedBy", "fullName publicId")
-    .select("publicId type amount status note createdAt customerId cashierId approvedBy loanId");
+    .select("publicId type amount  status note createdAt customerId cashierId approvedBy loanId");
 
   return { loan: populatedLoan, transaction: populatedTransaction };
 }
