@@ -42,7 +42,7 @@ const router = express.Router();
  *         schema:
  *           type: string
  *           example: John
- *         description: Search by full name
+ *         description: Search by full name, surname, or other name
  *       - in: query
  *         name: phone
  *         schema:
@@ -79,15 +79,33 @@ const router = express.Router();
  *                     properties:
  *                       _id:
  *                         type: string
+ *                       publicId:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *                         enum: [Mr, Mrs, Miss, Dr, Prof]
+ *                       surname:
+ *                         type: string
+ *                       otherName:
+ *                         type: string
  *                       fullName:
  *                         type: string
+ *                         description: Auto-derived from surname + otherName
+ *                       gender:
+ *                         type: string
+ *                         enum: [male, female]
+ *                       maritalStatus:
+ *                         type: string
+ *                         enum: [single, married, divorced, widowed]
  *                       phone:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       address:
  *                         type: string
  *                       status:
  *                         type: string
  *                         enum: [pending, approved]
- *                       publicId:
- *                         type: string
  *                       createdBy:
  *                         type: object
  *                         properties:
@@ -96,6 +114,14 @@ const router = express.Router();
  *                           publicId:
  *                             type: string
  *                       assignedTo:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           fullName:
+ *                             type: string
+ *                           publicId:
+ *                             type: string
+ *                       approvedBy:
  *                         type: object
  *                         nullable: true
  *                         properties:
@@ -144,17 +170,134 @@ router.get("/", protect, authorize("admin", "cashier"), getCustomers);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [firstName, lastName, phone]
+ *             required: [surname, phone, address]
  *             properties:
- *               fullName:
+ *               title:
  *                 type: string
- *                 example: Victor Jude
+ *                 enum: [Mr, Mrs, Miss, Dr, Prof]
+ *                 example: Mr
+ *               surname:
+ *                 type: string
+ *                 example: Adeyemi
+ *               otherName:
+ *                 type: string
+ *                 example: Bola
+ *               gender:
+ *                 type: string
+ *                 enum: [male, female]
+ *                 example: male
+ *               maritalStatus:
+ *                 type: string
+ *                 enum: [single, married, divorced, widowed]
+ *                 example: single
+ *               dateOfBirth:
+ *                 type: string
+ *                 format: date
+ *                 example: 1995-06-15
+ *               nationality:
+ *                 type: string
+ *                 example: Nigerian
+ *               bvn:
+ *                 type: string
+ *                 example: "12345678901"
+ *               nin:
+ *                 type: string
+ *                 example: "98765432100"
+ *               meansOfIdentification:
+ *                 type: string
+ *                 example: Voter's Card
  *               phone:
  *                 type: string
- *                 example: 08031234567
+ *                 example: "08031234567"
+ *               email:
+ *                 type: string
+ *                 example: adeyemi.bola@gmail.com
  *               address:
  *                 type: string
- *                 example: Lagos, Nigeria
+ *                 example: 12 Lagos Street, Yaba
+ *               businessAddress:
+ *                 type: string
+ *                 example: 5 Broad Street, Lagos Island
+ *               occupation:
+ *                 type: string
+ *                 example: Trader
+ *               employerName:
+ *                 type: string
+ *                 example: Self-employed
+ *               employerAddress:
+ *                 type: string
+ *                 example: Balogun Market, Lagos
+ *               bankName:
+ *                 type: string
+ *                 example: Access Bank
+ *               accountName:
+ *                 type: string
+ *                 example: Adeyemi Bola
+ *               accountNumber:
+ *                 type: string
+ *                 example: "0123456789"
+ *               nextOfKin:
+ *                 type: object
+ *                 properties:
+ *                   fullName:
+ *                     type: string
+ *                     example: Jane Adeyemi
+ *                   phone:
+ *                     type: string
+ *                     example: "08011111111"
+ *                   address:
+ *                     type: string
+ *                     example: 12 Lagos Street, Yaba
+ *               emergencyContact:
+ *                 type: object
+ *                 properties:
+ *                   fullName:
+ *                     type: string
+ *                     example: James Adeyemi
+ *                   phone:
+ *                     type: string
+ *                     example: "08022222222"
+ *                   address:
+ *                     type: string
+ *                     example: 3 Ikeja Avenue, Lagos
+ *               guarantor:
+ *                 type: object
+ *                 properties:
+ *                   fullName:
+ *                     type: string
+ *                     example: John Doe
+ *                   maritalStatus:
+ *                     type: string
+ *                     enum: [single, married, divorced, widowed]
+ *                     example: married
+ *                   dateOfBirth:
+ *                     type: string
+ *                     format: date
+ *                     example: 1985-03-15
+ *                   state:
+ *                     type: string
+ *                     example: Lagos
+ *                   address:
+ *                     type: string
+ *                     example: 5 Abuja Crescent, Ikeja
+ *                   landmark:
+ *                     type: string
+ *                     example: Near Total Filling Station
+ *                   lga:
+ *                     type: string
+ *                     example: Ikeja
+ *                   phone:
+ *                     type: string
+ *                     example: "08098765432"
+ *                   email:
+ *                     type: string
+ *                     example: john.doe@gmail.com
+ *                   relationship:
+ *                     type: string
+ *                     example: Brother
+ *                   country:
+ *                     type: string
+ *                     example: Nigeria
  *     responses:
  *       201:
  *         description: Customer created successfully (status = pending)
@@ -165,11 +308,7 @@ router.get("/", protect, authorize("admin", "cashier"), getCustomers);
  *       403:
  *         description: Forbidden
  */
-router.post(
-  "/",
-  protect,
-  authorize("admin", "cashier"),
-  createCustomer );
+router.post("/", protect, authorize("admin", "cashier"), createCustomer);
 
 /**
  * @swagger

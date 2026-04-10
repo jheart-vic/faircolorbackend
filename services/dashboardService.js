@@ -131,9 +131,9 @@ export async function getCashierDashboard(userId, filter, status) {
 
   // ===== Recent customers =====
   const recentCustomers = await Customer.find(customerFilter)
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .select("fullName publicId phone address status createdAt");
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('fullName surname otherName phone publicId address status guarantor nextOfKin emergencyContact createdAt')
 
   return {
     cards: {

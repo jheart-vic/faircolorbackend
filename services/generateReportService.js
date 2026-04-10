@@ -198,6 +198,29 @@ function drawCustomerInfo(doc, customer, y) {
   return y + rowH + 16;
 }
 
+function drawGuarantorInfo(doc, guarantor, y) {
+    if (!guarantor?.fullName) return y // skip if no guarantor on record
+
+    y = drawSectionHeader(doc, 'GUARANTOR INFORMATION', y)
+    const rowH = 56
+    const W = bW(doc)
+    drawBorderRect(doc, MARGIN, y, W, rowH, C.headerBg, C.border)
+    const colW = W / 4
+    const fields = [
+        { label: 'Full Name',    value: guarantor.fullName },
+        { label: 'Phone',        value: guarantor.phone || '—' },
+        { label: 'Relationship', value: guarantor.relationship || '—' },
+        { label: 'Address',      value: guarantor.address || '—' },
+    ]
+    fields.forEach((f, i) => {
+        const cx = MARGIN + i * colW + 10
+        if (i > 0) drawLine(doc, MARGIN + i * colW, y + 8, MARGIN + i * colW, y + rowH - 8, C.border)
+        txt(doc, f.label, cx, y + 10, { size: 7, color: C.grey })
+        txt(doc, f.value, cx, y + 24, { size: 9, color: C.black, font: 'Helvetica-Bold', width: colW - 14 })
+    })
+    return y + rowH + 16
+}
+
 // ── Transactions Table ────────────────────────────────────────────────────────
 // Total col widths must = bW = ~535
 const TRX_COLS_CUSTOMER = [
@@ -361,6 +384,7 @@ export async function generateCustomerReport(customerId, user, res, query) {
   );
 
   y = drawCustomerInfo(doc, customer, y);
+  y = drawGuarantorInfo(doc, customer.guarantor, y)
   y = drawSummaryCards(doc, balance, y);
   y = drawTransactions(doc, transactions, y, false);
   y = drawLoans(doc, loans, y);

@@ -5,139 +5,136 @@ import Transaction from "../models/Transaction.js";
 import { formatCustomer } from "../utils/publicId.js";
 import AppError from "../utils/appError.js";
 
-export async function createCustomer(payload, userId) {
-  const { fullName, phone, address } = payload;
+// export async function createCustomer(payload, userId) {
+//   const { fullName, phone, address } = payload;
 
-  const normalizedPhone = normalizePhone(phone);
+//   const normalizedPhone = normalizePhone(phone);
 
-  const existing = await Customer.findOne({ phone: normalizedPhone });
-  if (existing) {
-    throw new AppError("Customer with this phone already exists", 400);
-  }
-
-  const customer = await Customer.create({
-    fullName,
-    phone: normalizedPhone,
-    address,
-    createdBy: userId,
-    status: "pending",
-  });
-
-  await customer.populate({ path: "createdBy", select: "fullName email" });
-  // Audit log
-  await AuditLog.create({
-    action: "CREATE_CUSTOMER",
-    performedBy: userId,
-    targetId: customer._id,
-  });
-
-  return formatCustomer(customer);
-}
-
-export async function getCustomers(query, user,  includeDeactivated = false) {
-  const {
-    page = 1,
-    limit = 10,
-    search,
-    phone,
-  } = query;
-
-  const filter = {};
-
-  // 🔐 ROLE-BASED ACCESS
-  if (user.role === "cashier") {
-    filter.$or = [
-      { createdBy: user._id },     // customers they created
-      { assignedTo: user._id },    // customers assigned to them (future-proof)
-    ];
-  }
-
-  // Include soft-deleted only if admin wants
-  if (!includeDeactivated) {
-    filter.isDeactivated = false;
-  }
-
-  // 🔍 SEARCH
-  if (search) {
-    filter.$and = filter.$and || [];
-    filter.$and.push({
-      $or: [{ fullName: { $regex: search, $options: "i" } }],
-    });
-  }
-
-  if (phone) {
-    filter.$and = filter.$and || [];
-    filter.$and.push({
-      phone: { $regex: phone },
-    });
-  }
-
-  const skip = (page - 1) * limit;
-
-  const [data, total] = await Promise.all([
-    Customer.find(filter)
-      .populate("createdBy", "fullName publicId")
-      .populate("assignedTo", "fullName publicId") // safe even if not yet in schema
-      .skip(skip)
-      .limit(Number(limit))
-      .sort({ createdAt: -1 }),
-
-    Customer.countDocuments(filter),
-  ]);
-
-  return {
-    data,
-    pagination: {
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      pages: Math.ceil(total / limit),
-    },
-  };
-}
-
-// export async function getCustomers(query) {
-//   const {
-//     page = 1,
-//     limit = 10,
-//     search,
-//     phone,
-//   } = query;
-
-//   const filter = {};
-
-//   if (search) {
-//     filter.$or = [
-//       { fullName: { $regex: search, $options: "i" } },
-//     ];
+//   const existing = await Customer.findOne({ phone: normalizedPhone });
+//   if (existing) {
+//     throw new AppError("Customer with this phone already exists", 400);
 //   }
 
-//   if (phone) {
-//     filter.phone = { $regex: phone };
-//   }
+//   const customer = await Customer.create({
+//     fullName,
+//     phone: normalizedPhone,
+//     address,
+//     createdBy: userId,
+//     status: "pending",
+//   });
 
-//   const skip = (page - 1) * limit;
+//   await customer.populate({ path: "createdBy", select: "fullName email" });
+//   // Audit log
+//   await AuditLog.create({
+//     action: "CREATE_CUSTOMER",
+//     performedBy: userId,
+//     targetId: customer._id,
+//   });
 
-//   const [data, total] = await Promise.all([
-//     Customer.find(filter)
-//       .populate("createdBy", "fullName", "publicId")
-//       .skip(skip)
-//       .limit(Number(limit))
-//       .sort({ createdAt: -1 }),
-
-//     Customer.countDocuments(filter),
-//   ]);
-
-//   return {
-//     data,
-//     pagination: {
-//       total,
-//       page: Number(page),
-//       limit: Number(limit),
-//       pages: Math.ceil(total / limit),
-//     },
-//   };
+//   return formatCustomer(customer);
 // }
+
+export async function createCustomer(payload, userId) {
+    const {
+        title, surname, otherName, gender, maritalStatus,
+        dateOfBirth, nationality, bvn, nin, meansOfIdentification,
+        phone, email, address, businessAddress,
+        occupation, employerName, employerAddress,
+        bankName, accountName, accountNumber,
+        nextOfKin, emergencyContact, guarantor,
+    } = payload
+
+    const normalizedPhone = normalizePhone(phone)
+
+    const existing = await Customer.findOne({ phone: normalizedPhone })
+    if (existing) {
+        throw new AppError('Customer with this phone already exists', 400)
+    }
+
+    const customer = await Customer.create({
+        title, surname, otherName, gender, maritalStatus,
+        dateOfBirth, nationality, bvn, nin, meansOfIdentification,
+        phone: normalizedPhone, email, address, businessAddress,
+        occupation, employerName, employerAddress,
+        bankName, accountName, accountNumber,
+        nextOfKin, emergencyContact, guarantor,
+        createdBy: userId,
+        isApproved:false,
+        status: 'pending',
+    })
+
+    await customer.populate({ path: 'createdBy', select: 'fullName email' })
+
+    await AuditLog.create({
+        action: 'CREATE_CUSTOMER',
+        performedBy: userId,
+        targetId: customer._id,
+    })
+
+    return formatCustomer(customer)
+}
+
+export async function getCustomers(query, user, includeDeactivated = false) {
+    const {
+        page = 1,
+        limit = 10,
+        search,
+        phone,
+    } = query
+
+    const filter = {}
+
+    if (user.role === 'cashier') {
+        filter.$or = [
+            { createdBy: user._id },
+            { assignedTo: user._id },
+        ]
+    }
+
+    if (!includeDeactivated) {
+        filter.isDeactivated = false
+    }
+
+    if (search) {
+        filter.$and = filter.$and || []
+        filter.$and.push({
+            $or: [
+                { fullName: { $regex: search, $options: 'i' } },
+                { surname: { $regex: search, $options: 'i' } },
+                { otherName: { $regex: search, $options: 'i' } },
+            ],
+        })
+    }
+
+    if (phone) {
+        filter.$and = filter.$and || []
+        filter.$and.push({ phone: { $regex: phone } })
+    }
+
+    const skip = (page - 1) * limit
+
+    const [data, total] = await Promise.all([
+        Customer.find(filter)
+            .populate('createdBy', 'fullName publicId')
+            .populate('assignedTo', 'fullName publicId')
+            .populate('approvedBy', 'fullName publicId')
+            .skip(skip)
+            .limit(Number(limit))
+            .sort({ createdAt: -1 }),
+
+        Customer.countDocuments(filter),
+    ])
+
+    return {
+        data,
+        pagination: {
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            pages: Math.ceil(total / limit),
+        },
+    }
+}
 
 export async function approveCustomer(customerId, adminId) {
   const customer = await Customer.findOne({ publicId: customerId });
@@ -149,6 +146,7 @@ export async function approveCustomer(customerId, adminId) {
   }
 
   customer.status = "approved";
+  customer.isApproved= true
   customer.approvedBy = adminId;
 
   await customer.save();

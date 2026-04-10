@@ -23,13 +23,22 @@ const router = express.Router();
  *             properties:
  *               customerId:
  *                 type: string
+ *                 example: CUS-ABC123
  *               amount:
  *                 type: number
+ *                 example: 117000
  *               duration:
  *                 type: number
  *                 description: Loan duration in months (1, 2, 3, 4, or 6)
  *                 enum: [1, 2, 3, 4, 6]
  *                 example: 6
+ *               purpose:
+ *                 type: string
+ *                 example: Business capital for stock purchase
+ *               repaymentMethod:
+ *                 type: string
+ *                 enum: [daily, weekly, monthly, quarterly]
+ *                 example: monthly
  *     responses:
  *       201:
  *         description: Loan created (pending)
@@ -38,36 +47,64 @@ const router = express.Router();
  *             schema:
  *               type: object
  *               properties:
+ *                 publicId:
+ *                   type: string
+ *                   example: LOAN-XYZ789
  *                 amount:
  *                   type: number
  *                   example: 117000
  *                 interest:
  *                   type: number
  *                   description: Auto-applied rate based on duration (1m=12%, 2m=20%, 3m=25%, 4m=30%, 6m=35%)
- *                   example: 30
+ *                   example: 35
  *                 amountToPay:
  *                   type: number
  *                   description: Total repayment amount (amount + interest)
- *                   example: 152100
+ *                   example: 157950
  *                 monthlyPayment:
  *                   type: number
- *                   description: Equal monthly installment (amountToPay / duration), rounded
- *                   example: 38025
+ *                   description: Equal installment per period (amountToPay / duration)
+ *                   example: 26325
  *                 duration:
  *                   type: number
- *                   example: 4
+ *                   example: 6
+ *                 purpose:
+ *                   type: string
+ *                   example: Business capital for stock purchase
+ *                 repaymentMethod:
+ *                   type: string
+ *                   example: monthly
  *                 status:
  *                   type: string
  *                   example: pending
+ *                 customerId:
+ *                   type: object
+ *                   properties:
+ *                     fullName:
+ *                       type: string
+ *                     publicId:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     address:
+ *                       type: string
+ *                 createdBy:
+ *                   type: object
+ *                   properties:
+ *                     fullName:
+ *                       type: string
+ *                     publicId:
+ *                       type: string
  *       400:
  *         description: Missing fields, invalid duration, or customer not approved
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Cashier only
+ *       404:
+ *         description: Customer not found or not assigned to you
  */
-router.post(
-  "/",
-  protect,
-  authorize("cashier"),
-  controller.createLoanController
-);
+router.post("/", protect, authorize("cashier"), controller.createLoanController);
 
 /**
  * @swagger
