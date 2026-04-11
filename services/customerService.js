@@ -41,7 +41,7 @@ export async function createCustomer(payload, userId) {
         phone, email, address, businessAddress,
         occupation, employerName, employerAddress,
         bankName, accountName, accountNumber,
-        nextOfKin, emergencyContact, guarantor,
+        nextOfKin, emergencyContact,
     } = payload
 
     const normalizedPhone = normalizePhone(phone)
@@ -57,7 +57,7 @@ export async function createCustomer(payload, userId) {
         phone: normalizedPhone, email, address, businessAddress,
         occupation, employerName, employerAddress,
         bankName, accountName, accountNumber,
-        nextOfKin, emergencyContact, guarantor,
+        nextOfKin, emergencyContact,
         createdBy: userId,
         isApproved:false,
         status: 'pending',

@@ -12,6 +12,19 @@ export async function createLoanController(req, res, next) {
     next(err);
   }
 }
+export async function updateCreditAnalysisController(req, res, next) {
+    try {
+        const data = await loanService.updateCreditAnalysis(
+            req.params.loanId,
+            req.body,
+            req.user._id,
+        )
+
+        res.status(200).json({ success: true, data })
+    } catch (err) {
+        next(err)
+    }
+}
 
 export async function approveLoan(req, res, next) {
   try {

@@ -33,7 +33,6 @@ export function formatCustomer(customer) {
         accountNumber: customer.accountNumber,
         nextOfKin: customer.nextOfKin ?? null,
         emergencyContact: customer.emergencyContact ?? null,
-        guarantor: customer.guarantor ?? null,
         status: customer.status,
         isApproved:customer.isApproved,
         createdAt: customer.createdAt,
@@ -85,5 +84,8 @@ export function formatTransaction(transaction) {
                 publicId: transaction.cashierId.publicId,
             }
             : null,
+        ...(transaction.type === 'loan' && {
+            guarantor: transaction.loanId?.guarantor ?? null,
+        }),
     }
 }

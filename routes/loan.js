@@ -29,7 +29,6 @@ const router = express.Router();
  *                 example: 117000
  *               duration:
  *                 type: number
- *                 description: Loan duration in months (1, 2, 3, 4, or 6)
  *                 enum: [1, 2, 3, 4, 6]
  *                 example: 6
  *               purpose:
@@ -39,62 +38,47 @@ const router = express.Router();
  *                 type: string
  *                 enum: [daily, weekly, monthly, quarterly]
  *                 example: monthly
+ *               guarantor:
+ *                 type: object
+ *                 properties:
+ *                   fullName:
+ *                     type: string
+ *                     example: John Doe
+ *                   maritalStatus:
+ *                     type: string
+ *                     enum: [single, married, divorced, widowed]
+ *                     example: married
+ *                   dateOfBirth:
+ *                     type: string
+ *                     format: date
+ *                     example: 1985-03-15
+ *                   state:
+ *                     type: string
+ *                     example: Lagos
+ *                   address:
+ *                     type: string
+ *                     example: 5 Abuja Crescent, Ikeja
+ *                   landmark:
+ *                     type: string
+ *                     example: Near Total Filling Station
+ *                   lga:
+ *                     type: string
+ *                     example: Ikeja
+ *                   phone:
+ *                     type: string
+ *                     example: "08098765432"
+ *                   email:
+ *                     type: string
+ *                     example: john.doe@gmail.com
+ *                   relationship:
+ *                     type: string
+ *                     example: Brother
+ *                   country:
+ *                     type: string
+ *                     example: Nigeria
  *     responses:
  *       201:
  *         description: Loan created (pending)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 publicId:
- *                   type: string
- *                   example: LOAN-XYZ789
- *                 amount:
- *                   type: number
- *                   example: 117000
- *                 interest:
- *                   type: number
- *                   description: Auto-applied rate based on duration (1m=12%, 2m=20%, 3m=25%, 4m=30%, 6m=35%)
- *                   example: 35
- *                 amountToPay:
- *                   type: number
- *                   description: Total repayment amount (amount + interest)
- *                   example: 157950
- *                 monthlyPayment:
- *                   type: number
- *                   description: Equal installment per period (amountToPay / duration)
- *                   example: 26325
- *                 duration:
- *                   type: number
- *                   example: 6
- *                 purpose:
- *                   type: string
- *                   example: Business capital for stock purchase
- *                 repaymentMethod:
- *                   type: string
- *                   example: monthly
- *                 status:
- *                   type: string
- *                   example: pending
- *                 customerId:
- *                   type: object
- *                   properties:
- *                     fullName:
- *                       type: string
- *                     publicId:
- *                       type: string
- *                     phone:
- *                       type: string
- *                     address:
- *                       type: string
- *                 createdBy:
- *                   type: object
- *                   properties:
- *                     fullName:
- *                       type: string
- *                     publicId:
- *                       type: string
  *       400:
  *         description: Missing fields, invalid duration, or customer not approved
  *       401:
@@ -207,5 +191,73 @@ router.get(
   authorize("admin"),
   controller.getLoans
 );
+
+/**
+ * @swagger
+ * /api/loans/{loanId}/credit-analysis:
+ *   patch:
+ *     summary: Fill credit analysis for a loan (Admin only)
+ *     description: |
+ *       Fills the "For Official Use Only" section of the loan form.
+ *       This is done by the credit unit after the loan has been submitted by the cashier.
+ *     tags: [Loans]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: loanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: LOAN-XYZ789
+ *         description: Public ID of the loan
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               guarantyFund:
+ *                 type: number
+ *                 example: 50000
+ *               upfrontCharges:
+ *                 type: number
+ *                 example: 5000
+ *               expectedInterest:
+ *                 type: number
+ *                 example: 40950
+ *               totalIncomeExpected:
+ *                 type: number
+ *                 example: 157950
+ *               repaymentPlan:
+ *                 type: string
+ *                 example: Monthly deduction from savings
+ *               accountOfficer:
+ *                 type: string
+ *                 example: Emeka Nwosu
+ *               headBusinessDevelopment:
+ *                 type: string
+ *                 example: Amaka Obi
+ *               hopFincon:
+ *                 type: string
+ *                 example: Chidi Eze
+ *               internalControl:
+ *                 type: string
+ *                 example: Ngozi Adaeze
+ *               accountNo:
+ *                 type: string
+ *                 example: "0123456789"
+ *     responses:
+ *       200:
+ *         description: Credit analysis updated successfully
+ *       400:
+ *         description: Cannot update credit analysis on a rejected loan
+ *       403:
+ *         description: Forbidden - Admin only
+ *       404:
+ *         description: Loan not found
+ */
+router.patch('/:loanId/credit-analysis', protect, authorize('admin'), controller.updateCreditAnalysisController)
 
 export default router;

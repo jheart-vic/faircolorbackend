@@ -1,20 +1,6 @@
 import mongoose from 'mongoose'
 import { generatePublicId } from "../utils/publicId.js";
 
-const guarantorSchema = new mongoose.Schema({
-    fullName: { type: String, trim: true },
-    maritalStatus: { type: String, enum: ['single', 'married', 'divorced', 'widowed'] },
-    dateOfBirth: { type: Date },
-    state: { type: String },
-    address: { type: String },
-    landmark: { type: String },
-    lga: { type: String },
-    phone: { type: String },
-    email: { type: String },
-    relationship: { type: String },
-    country: { type: String, default: 'Nigeria' },
-}, { _id: false })
-
 const customerSchema = new mongoose.Schema(
     {
         publicId: {
@@ -38,7 +24,6 @@ const customerSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
-        // kept for backwards compat / display convenience
         fullName: {
             type: String,
             trim: true,
@@ -55,7 +40,7 @@ const customerSchema = new mongoose.Schema(
         nationality: { type: String, default: 'Nigerian' },
         bvn: { type: String, trim: true },
         nin: { type: String, trim: true },
-        meansOfIdentification: { type: String }, // e.g. NIN slip, Voter's card, etc.
+        meansOfIdentification: { type: String },
 
         // ── Contact ───────────────────────────────────────────────────────────
         phone: {
@@ -93,9 +78,6 @@ const customerSchema = new mongoose.Schema(
             address: { type: String },
         },
 
-        // ── Guarantor (from loan form) ────────────────────────────────────────
-        guarantor: { type: guarantorSchema },
-
         // ── Meta ──────────────────────────────────────────────────────────────
         isDeactivated: { type: Boolean, default: false },
         isApproved: { type: Boolean, default: false },
@@ -129,7 +111,6 @@ customerSchema.pre('validate', function (next) {
     if (!this.publicId) {
         this.publicId = generatePublicId('CUS')
     }
-    // Auto-derive fullName from surname + otherName
     if (!this.fullName && this.surname) {
         this.fullName = [this.surname, this.otherName].filter(Boolean).join(' ')
     }

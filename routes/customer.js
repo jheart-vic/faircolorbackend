@@ -260,44 +260,6 @@ router.get("/", protect, authorize("admin", "cashier"), getCustomers);
  *                   address:
  *                     type: string
  *                     example: 3 Ikeja Avenue, Lagos
- *               guarantor:
- *                 type: object
- *                 properties:
- *                   fullName:
- *                     type: string
- *                     example: John Doe
- *                   maritalStatus:
- *                     type: string
- *                     enum: [single, married, divorced, widowed]
- *                     example: married
- *                   dateOfBirth:
- *                     type: string
- *                     format: date
- *                     example: 1985-03-15
- *                   state:
- *                     type: string
- *                     example: Lagos
- *                   address:
- *                     type: string
- *                     example: 5 Abuja Crescent, Ikeja
- *                   landmark:
- *                     type: string
- *                     example: Near Total Filling Station
- *                   lga:
- *                     type: string
- *                     example: Ikeja
- *                   phone:
- *                     type: string
- *                     example: "08098765432"
- *                   email:
- *                     type: string
- *                     example: john.doe@gmail.com
- *                   relationship:
- *                     type: string
- *                     example: Brother
- *                   country:
- *                     type: string
- *                     example: Nigeria
  *     responses:
  *       201:
  *         description: Customer created successfully (status = pending)

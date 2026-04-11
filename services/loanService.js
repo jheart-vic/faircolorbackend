@@ -13,7 +13,7 @@ const INTEREST_RATES = {
 };
 
 export async function createLoan(payload, cashierId) {
-    const { customerId, amount, duration, purpose, repaymentMethod } = payload
+    const { customerId, amount, duration, purpose, repaymentMethod, guarantor } = payload
 
     if (!customerId || !amount || !duration) {
         throw new AppError('All fields are required', 400)
@@ -46,6 +46,7 @@ export async function createLoan(payload, cashierId) {
         monthlyPayment,
         purpose,
         repaymentMethod,
+        guarantor,
         createdBy: cashierId,
         status: 'pending',
     })
@@ -59,7 +60,7 @@ export async function createLoan(payload, cashierId) {
     return Loan.findById(loan._id)
         .populate('customerId', 'fullName publicId phone address')
         .populate('createdBy', 'fullName publicId')
-        .select('publicId amount interest amountToPay monthlyPayment duration purpose repaymentMethod status createdAt customerId createdBy')
+        .select('publicId amount interest amountToPay monthlyPayment duration purpose repaymentMethod guarantor status createdAt customerId createdBy')
 }
 
 export async function approveLoan(loanId, adminId) {
@@ -99,10 +100,11 @@ export async function approveLoan(loanId, adminId) {
     .select("publicId amount interest  amountToPay monthlyPayment duration status createdAt customerId createdBy approvedBy");
 
   const populatedTransaction = await Transaction.findById(transaction._id)
-    .populate("customerId", "fullName publicId phone")
-    .populate("cashierId", "fullName publicId")
-    .populate("approvedBy", "fullName publicId")
-    .select("publicId type amount  status note createdAt customerId cashierId approvedBy loanId");
+    .populate('customerId', 'fullName surname otherName publicId phone')
+    .populate('cashierId', 'fullName publicId')
+    .populate('approvedBy', 'fullName publicId')
+    .populate('loanId', 'guarantor publicId')
+    .select('publicId type amount status note createdAt customerId cashierId approvedBy loanId')
 
   return { loan: populatedLoan, transaction: populatedTransaction };
 }
@@ -183,4 +185,53 @@ export async function rejectLoan(loanId, adminId) {
         .select('publicId amount interest duration purpose repaymentMethod status createdAt customerId createdBy rejectedBy')
 
     return { loan: populatedLoan }
+}
+
+export async function updateCreditAnalysis(loanId, payload, adminId) {
+    const loan = await Loan.findOne({ publicId: loanId })
+    if (!loan) throw new AppError('Loan not found', 404)
+
+    if (loan.status === 'rejected') {
+        throw new AppError('Cannot update credit analysis on a rejected loan', 400)
+    }
+
+    const {
+        guarantyFund,
+        upfrontCharges,
+        expectedInterest,
+        totalIncomeExpected,
+        repaymentPlan,
+        accountOfficer,
+        headBusinessDevelopment,
+        hopFincon,
+        internalControl,
+        accountNo,
+    } = payload
+
+    loan.creditAnalysis = {
+        guarantyFund,
+        upfrontCharges,
+        expectedInterest,
+        totalIncomeExpected,
+        repaymentPlan,
+        accountOfficer,
+        headBusinessDevelopment,
+        hopFincon,
+        internalControl,
+        accountNo,
+    }
+
+    await loan.save()
+
+    await AuditLog.create({
+        action: 'UPDATE_CREDIT_ANALYSIS',
+        performedBy: adminId,
+        targetId: loan._id,
+    })
+
+    return Loan.findById(loan._id)
+        .populate('customerId', 'fullName publicId phone address')
+        .populate('createdBy', 'fullName publicId')
+        .populate('approvedBy', 'fullName publicId')
+        .select('publicId amount interest amountToPay monthlyPayment duration purpose repaymentMethod status creditAnalysis createdAt customerId createdBy approvedBy')
 }

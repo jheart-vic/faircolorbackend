@@ -1,5 +1,5 @@
 import express from "express";
-import { createCashier, getCashiers, transferCustomerController } from "../controllers/userController.js";
+import { createCashier, getCashierById, getCashiers, transferCustomerController } from "../controllers/userController.js";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
 
@@ -66,10 +66,12 @@ router.post(
  * @swagger
  * /api/users/cashiers:
  *   get:
- *     summary: Get all cashiers(admin only)
- *     description: Fetch cashiers with pagination and optional filters
+ *     summary: Get all cashiers (Admin only)
+ *     description: Fetch cashiers with pagination, filters, and activity stats
  *     tags:
  *       - Users
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -111,15 +113,44 @@ router.post(
  *                   items:
  *                     type: object
  *                     properties:
- *                       _id:
- *                         type: string
- *                       name:
- *                         type: string
- *                       email:
- *                         type: string
- *                       role:
- *                         type: string
- *                         example: cashier
+ *                       cashier:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           publicId:
+ *                             type: string
+ *                           fullName:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           totalCustomers:
+ *                             type: integer
+ *                             example: 20
+ *                           totalTransactions:
+ *                             type: integer
+ *                             example: 50
+ *                           totalLoans:
+ *                             type: integer
+ *                             example: 10
+ *                           deposits:
+ *                             type: number
+ *                             example: 500000
+ *                           withdrawals:
+ *                             type: number
+ *                             example: 200000
+ *                           loans:
+ *                             type: number
+ *                             example: 100000
+ *                           netBalance:
+ *                             type: number
+ *                             example: 200000
  *                 pagination:
  *                   type: object
  *                   properties:
@@ -131,10 +162,147 @@ router.post(
  *                       type: integer
  *                     pages:
  *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin only
  *       500:
  *         description: Server error
  */
 router.get("/cashiers", protect, authorize("admin"), getCashiers);
+
+/**
+ * @swagger
+ * /api/users/cashiers/{cashierId}:
+ *   get:
+ *     summary: Get a single cashier with full activity (Admin only)
+ *     description: |
+ *       Returns cashier profile, stats, and paginated activity
+ *       (customers, transactions, loans). Filter by date range or transaction type.
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cashierId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: USR-ABC123
+ *         description: Public ID of the cashier
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 10
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: 2024-01-01
+ *         description: Filter activities from this date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: 2024-12-31
+ *         description: Filter activities up to this date
+ *       - in: query
+ *         name: transactionType
+ *         schema:
+ *           type: string
+ *           enum: [deposit, withdrawal, loan]
+ *         description: Filter transactions by type
+ *     responses:
+ *       200:
+ *         description: Cashier fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     cashier:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         publicId:
+ *                           type: string
+ *                         fullName:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                     stats:
+ *                       type: object
+ *                       properties:
+ *                         totalCustomers:
+ *                           type: integer
+ *                         totalTransactions:
+ *                           type: integer
+ *                         totalLoans:
+ *                           type: integer
+ *                         deposits:
+ *                           type: number
+ *                         withdrawals:
+ *                           type: number
+ *                         loans:
+ *                           type: number
+ *                         netBalance:
+ *                           type: number
+ *                     customers:
+ *                       type: object
+ *                       properties:
+ *                         data:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         pagination:
+ *                           type: object
+ *                     transactions:
+ *                       type: object
+ *                       properties:
+ *                         data:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         pagination:
+ *                           type: object
+ *                     loans:
+ *                       type: object
+ *                       properties:
+ *                         data:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                         pagination:
+ *                           type: object
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin only
+ *       404:
+ *         description: Cashier not found
+ *       500:
+ *         description: Server error
+ */
+router.get("/cashiers/:cashierId", protect, authorize("admin"), getCashierById);
 
 /**
  * @swagger

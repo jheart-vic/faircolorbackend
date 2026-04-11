@@ -15,6 +15,20 @@ const creditAnalysisSchema = new mongoose.Schema({
     accountNo: { type: String },
 }, { _id: false })
 
+const guarantorSchema = new mongoose.Schema({
+    fullName: { type: String, trim: true },
+    maritalStatus: { type: String, enum: ['single', 'married', 'divorced', 'widowed'] },
+    dateOfBirth: { type: Date },
+    state: { type: String },
+    address: { type: String },
+    landmark: { type: String },
+    lga: { type: String },
+    phone: { type: String },
+    email: { type: String },
+    relationship: { type: String },
+    country: { type: String, default: 'Nigeria' },
+}, { _id: false })
+
 const loanSchema = new mongoose.Schema(
     {
         customerId: {
@@ -58,7 +72,8 @@ const loanSchema = new mongoose.Schema(
             enum: ['pending', 'approved', 'rejected', 'disbursed', 'completed'],
             default: 'pending',
         },
-
+        // ── Guarantor  ────────────────────────────────────────
+        guarantor: { type: guarantorSchema },
         // ── Official use (credit unit section) ───────────────────────────────
         creditAnalysis: { type: creditAnalysisSchema },
 

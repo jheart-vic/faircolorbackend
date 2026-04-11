@@ -15,16 +15,21 @@ export async function createCashier(req, res, next) {
 }
 
 export async function getCashiers(req, res, next) {
-  try {
-    const data = await userService.getCashiers(req.query);
+    try {
+        const data = await userService.getCashiers(req.query)
+        res.status(200).json({ success: true, ...data })
+    } catch (err) {
+        next(err)
+    }
+}
 
-    res.json({
-      success: true,
-      ...data,
-    });
-  } catch (err) {
-    next(err);
-  }
+export async function getCashierById(req, res, next) {
+    try {
+        const data = await userService.getCashierById(req.params.cashierId, req.query)
+        res.status(200).json({ success: true, data })
+    } catch (err) {
+        next(err)
+    }
 }
 
 export async function transferCustomerController(req, res) {
