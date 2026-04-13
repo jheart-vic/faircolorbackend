@@ -1,4 +1,6 @@
 import User from "../models/User.js";
+import Loan from "../models/Loan.js";
+import Transaction from "../models/Transaction.js";
 import AuditLog from "../models/AuditLog.js";
 import Customer from "../models/Customer.js";
 import { normalizePhone } from "../utils/normalizePhone.js";
