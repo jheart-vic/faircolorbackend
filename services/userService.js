@@ -64,7 +64,7 @@ export async function getCashiers(query) {
 
     const [cashiers, total] = await Promise.all([
         User.find(filter)
-            .select('publicId fullName email createdAt')
+            .select('publicId fullName email phone createdAt')
             .skip(skip)
             .limit(Number(limit))
             .sort({ createdAt: -1 }),
