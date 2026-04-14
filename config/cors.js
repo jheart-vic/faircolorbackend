@@ -9,7 +9,7 @@ const corsOptions = {
     "http://localhost:5173",
     "http://localhost:5001",
     "http://localhost:5002",
-    "https://faircoloursmfb-gi23.vercel.app/",
+    "https://faircoloursmfb-gi23.vercel.app",
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
