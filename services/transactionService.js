@@ -105,7 +105,7 @@ export async function getTransactions(query, user) {
 
     const [data, total] = await Promise.all([
         Transaction.find(filter)
-            .populate('customerId', 'fullName surname otherName phone publicId phone')
+            .populate('customerId', 'fullName surname otherName publicId phone')
             .populate('cashierId', 'fullName email publicId phone')
             .sort({ createdAt: -1 })
             .skip(skip)
