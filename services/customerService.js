@@ -80,31 +80,36 @@ export async function getCustomers(query, user) {
         limit = 10,
         search,
         phone,
-        status, // 👈 add this
+        status,
+        accountStatus,
     } = query
 
-    const filter = {}
+    const conditions = []
 
     // 🔐 Role-based filtering
     if (user.role === 'cashier') {
-        filter.$or = [
-            { createdBy: user._id },
-            { assignedTo: user._id },
-        ]
+        conditions.push({
+            $or: [
+                { createdBy: user._id },
+                { assignedTo: user._id },
+            ],
+        })
     }
 
-    // ✅ Status filtering (clean & explicit)
-    if (status === 'active') {
-        filter.isDeactivated = false
-    } else if (status === 'deactivated') {
-        filter.isDeactivated = true
+    if (accountStatus === 'active') {
+        conditions.push({ isDeactivated: false })
+    } else if (accountStatus === 'deactivated') {
+        conditions.push({ isDeactivated: true })
     }
-    // 👉 if no status → return ALL (both active + deactivated)
+
+
+    if (status === 'pending' || status === 'approved') {
+        conditions.push({ status })
+    }
 
     // 🔍 Search
     if (search) {
-        filter.$and = filter.$and || []
-        filter.$and.push({
+        conditions.push({
             $or: [
                 { fullName: { $regex: search, $options: 'i' } },
                 { surname: { $regex: search, $options: 'i' } },
@@ -115,20 +120,27 @@ export async function getCustomers(query, user) {
 
     // 📞 Phone filter
     if (phone) {
-        filter.$and = filter.$and || []
-        filter.$and.push({ phone: { $regex: phone } })
+        conditions.push({
+            phone: { $regex: `^${phone}`, $options: 'i' }, // safer
+        })
     }
 
-    const skip = (Number(page) - 1) * Number(limit)
+    // 🧠 Final filter
+    const filter = conditions.length ? { $and: conditions } : {}
+
+    // 🛡️ Safe pagination
+    const safePage = Math.max(1, Number(page))
+    const safeLimit = Math.min(50, Math.max(1, Number(limit)))
+    const skip = (safePage - 1) * safeLimit
 
     const [data, total] = await Promise.all([
         Customer.find(filter)
             .populate('createdBy', 'fullName publicId')
             .populate('assignedTo', 'fullName publicId')
             .populate('approvedBy', 'fullName publicId')
+            .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(Number(limit))
-            .sort({ createdAt: -1 }),
+            .limit(safeLimit),
 
         Customer.countDocuments(filter),
     ])
@@ -137,9 +149,9 @@ export async function getCustomers(query, user) {
         data,
         pagination: {
             total,
-            page: Number(page),
-            limit: Number(limit),
-            pages: Math.ceil(total / limit),
+            page: safePage,
+            limit: safeLimit,
+            pages: Math.ceil(total / safeLimit),
         },
     }
 }
@@ -246,20 +258,25 @@ export async function deleteCustomer(customerId, user) {
   return true;
 }
 
-export async function deactivateCustomer(customerId, adminUser){
-
+export async function toggleCustomerDeactivation(customerId, adminUser) {
   const customer = await Customer.findOne({ publicId: customerId });
   if (!customer) throw new AppError("Customer not found", 404);
 
-  customer.isDeactivated = true;
-  customer.deactivatedAt = new Date();
+  const isDeactivating = !customer.isDeactivated;
+
+  customer.isDeactivated = isDeactivating;
+  customer.deactivatedAt = isDeactivating ? new Date() : null;
+  customer.deactivatedBy = isDeactivating ? adminUser._id : null;
+
   await customer.save();
 
   await AuditLog.create({
-    action: "DEACTIVATE_CUSTOMER",
+    action: isDeactivating
+      ? "DEACTIVATE_CUSTOMER"
+      : "RESTORE_CUSTOMER",
     performedBy: adminUser._id,
     targetId: customer._id,
   });
 
-  return true;
+  return customer;
 }

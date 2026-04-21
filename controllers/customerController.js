@@ -36,14 +36,22 @@ export async function approveCustomer(req, res, next) {
 
 export async function getCustomers(req, res, next) {
   try {
-    const { status } = req.query
+    const { status, accountStatus } = req.query
 
-    const allowedStatus = ['active', 'deactivated']
+    const validAccountStatus = ['active', 'deactivated']
+    const validApprovalStatus = ['pending', 'approved']
 
-    if (status && !allowedStatus.includes(status)) {
+    if (accountStatus && !validAccountStatus.includes(accountStatus)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status. Use "active" or "deactivated"',
+        message: 'Invalid accountStatus. Use "active" or "deactivated"',
+      })
+    }
+
+    if (status && !validApprovalStatus.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Use "pending" or "approved"',
       })
     }
 
@@ -76,17 +84,19 @@ export async function getCustomerBalance(req, res, next) {
   }
 }
 
-export async function deactivateCustomer(req, res, next) {
+export async function toggleDeactivate(req, res, next) {
   try {
-    const data = await customerService.deactivateCustomer(
+    const customer = await customerService.toggleCustomerDeactivation(
       req.params.customerId,
-      req.user._id
+      req.user
     );
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Customer deactivated successfully",
-      data,
+      message: customer.isDeactivated
+        ? "Customer deactivated"
+        : "Customer restored",
+      data: customer,
     });
   } catch (err) {
     next(err);

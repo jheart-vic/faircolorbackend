@@ -1,5 +1,5 @@
 import express from "express";
-import { approveCustomer, createCustomer, deactivateCustomer, deleteCustomer, getCustomerBalance, getCustomers } from "../controllers/customerController.js";
+import { approveCustomer, createCustomer, deleteCustomer, getCustomerBalance, getCustomers, toggleDeactivate } from "../controllers/customerController.js";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
 
@@ -308,7 +308,7 @@ router.patch(
 
 /**
  * @swagger
- * /api/customers/{customerId}/deactivate:
+ * /api/customers/{customerId}/toggle-deactivate:
  *   patch:
  *     summary: Deactivate customer (Admin only)
  *     tags: [Customers]
@@ -332,10 +332,10 @@ router.patch(
  *         description: Forbidden
  */
 router.patch(
-  "/:customerId/deactivate",
+  "/:customerId/toggle-deactivate",
   protect,
   authorize("admin"),
-  deactivateCustomer
+ toggleDeactivate
 );
 
 /**

@@ -80,8 +80,12 @@ const customerSchema = new mongoose.Schema(
 
         // ── Meta ──────────────────────────────────────────────────────────────
         isDeactivated: { type: Boolean, default: false },
+        deactivatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+        },
         isApproved: { type: Boolean, default: false },
-        deactivatedAt: { type: Date },
+        deactivatedAt: { type: Date, default: null },
         status: {
             type: String,
             enum: ['pending', 'approved'],
@@ -104,9 +108,8 @@ const customerSchema = new mongoose.Schema(
             ref: 'User',
         },
     },
-    { timestamps: true },
+    {timestamps: true,  toJSON: { virtuals: true }, toObject: { virtuals: true }}
 )
-
 customerSchema.pre('validate', function (next) {
     if (!this.publicId) {
         this.publicId = generatePublicId('CUS')
@@ -116,7 +119,9 @@ customerSchema.pre('validate', function (next) {
     }
     next()
 })
-
+customerSchema.virtual('accountStatus').get(function () {
+  return this.isDeactivated ? 'deactivated' : 'active'
+})
 customerSchema.pre('remove', async function (next) {
     try {
         await Transaction.deleteMany({ customerId: this._id })
@@ -127,5 +132,6 @@ customerSchema.pre('remove', async function (next) {
         next(err)
     }
 })
+
 
 export default mongoose.model('Customer', customerSchema)
