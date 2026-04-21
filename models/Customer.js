@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { generatePublicId } from "../utils/publicId.js";
+import { generatePublicId } from '../utils/publicId.js'
 
 const customerSchema = new mongoose.Schema(
     {
@@ -114,11 +114,6 @@ customerSchema.pre('validate', function (next) {
     if (!this.fullName && this.surname) {
         this.fullName = [this.surname, this.otherName].filter(Boolean).join(' ')
     }
-    next()
-})
-
-customerSchema.pre(/^find/, function (next) {
-    this.where({ isDeactivated: false })
     next()
 })
 

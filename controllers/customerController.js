@@ -36,17 +36,30 @@ export async function approveCustomer(req, res, next) {
 
 export async function getCustomers(req, res, next) {
   try {
-    const data = await customerService.getCustomers(req.query, req.user);
+    const { status } = req.query
+
+    const allowedStatus = ['active', 'deactivated']
+
+    if (status && !allowedStatus.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Use "active" or "deactivated"',
+      })
+    }
+
+    const data = await customerService.getCustomers(
+      req.query,
+      req.user
+    )
 
     res.json({
       success: true,
       ...data,
-    });
+    })
   } catch (err) {
-    next(err);
+    next(err)
   }
 }
-
 export async function getCustomerBalance(req, res, next) {
   try {
     const data = await customerService.getCustomerBalanceByPublicId(

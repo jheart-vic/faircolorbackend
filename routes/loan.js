@@ -119,6 +119,7 @@ router.patch(
   controller.approveLoan
 );
 
+
 /**
  * @swagger
  * /api/loans/{loanId}/reject:

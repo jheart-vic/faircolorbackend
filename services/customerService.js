@@ -74,16 +74,18 @@ export async function createCustomer(payload, userId) {
     return formatCustomer(customer)
 }
 
-export async function getCustomers(query, user, includeDeactivated = false) {
+export async function getCustomers(query, user) {
     const {
         page = 1,
         limit = 10,
         search,
         phone,
+        status, // 👈 add this
     } = query
 
     const filter = {}
 
+    // 🔐 Role-based filtering
     if (user.role === 'cashier') {
         filter.$or = [
             { createdBy: user._id },
@@ -91,10 +93,15 @@ export async function getCustomers(query, user, includeDeactivated = false) {
         ]
     }
 
-    if (!includeDeactivated) {
+    // ✅ Status filtering (clean & explicit)
+    if (status === 'active') {
         filter.isDeactivated = false
+    } else if (status === 'deactivated') {
+        filter.isDeactivated = true
     }
+    // 👉 if no status → return ALL (both active + deactivated)
 
+    // 🔍 Search
     if (search) {
         filter.$and = filter.$and || []
         filter.$and.push({
@@ -106,12 +113,13 @@ export async function getCustomers(query, user, includeDeactivated = false) {
         })
     }
 
+    // 📞 Phone filter
     if (phone) {
         filter.$and = filter.$and || []
         filter.$and.push({ phone: { $regex: phone } })
     }
 
-    const skip = (page - 1) * limit
+    const skip = (Number(page) - 1) * Number(limit)
 
     const [data, total] = await Promise.all([
         Customer.find(filter)

@@ -1,60 +1,57 @@
-import User from "../models/User.js";
-import Loan from "../models/Loan.js";
-import Transaction from "../models/Transaction.js";
-import AuditLog from "../models/AuditLog.js";
-import Customer from "../models/Customer.js";
-import { normalizePhone } from "../utils/normalizePhone.js";
-import { formatCustomer } from "../utils/publicId.js";
+import User from '../models/User.js'
+import Loan from '../models/Loan.js'
+import Transaction from '../models/Transaction.js'
+import AuditLog from '../models/AuditLog.js'
+import Customer from '../models/Customer.js'
+import { normalizePhone } from '../utils/normalizePhone.js'
+import { formatCustomer } from '../utils/publicId.js'
 
 export async function createCashier(payload, adminId) {
-  const { fullName, email, password, phone } = payload;
+    const { fullName, email, password, phone } = payload
 
-  const existing = await User.findOne({ email }).select("publicId");
-  if (existing) {
-    throw new Error("Email already in use");
-  }
+    const existing = await User.findOne({ email }).select('publicId')
+    if (existing) {
+        throw new Error('Email already in use')
+    }
 
-if (phone) {
-  const normalizedPhone = normalizePhone(phone);
-  const existingPhone = await User.findOne({ phone: normalizedPhone }).select("publicId");
-if (existingPhone) {
-    throw new Error("Phone number already in use");
-  }
-}
+    if (phone) {
+        const normalizedPhone = normalizePhone(phone)
+        const existingPhone = await User.findOne({
+            phone: normalizedPhone,
+        }).select('publicId')
+        if (existingPhone) {
+            throw new Error('Phone number already in use')
+        }
+    }
 
-const normalizedPhoneNumber = normalizePhone(phone);
-  const cashier = await User.create({
-    fullName,
-    email: email.toLowerCase().trim(),
-    password,
-    phone: normalizedPhoneNumber,
-    role: "cashier",
-  });
+    const normalizedPhoneNumber = normalizePhone(phone)
+    const cashier = await User.create({
+        fullName,
+        email: email.toLowerCase().trim(),
+        password,
+        phone: normalizedPhoneNumber,
+        role: 'cashier',
+    })
 
-  // Audit log
-  await AuditLog.create({
-    action: "CREATE_CASHIER",
-    performedBy: adminId,
-    targetId: cashier._id,
-  });
+    // Audit log
+    await AuditLog.create({
+        action: 'CREATE_CASHIER',
+        performedBy: adminId,
+        targetId: cashier._id,
+    })
 
-  return {
-    id: cashier._id,
-    fullName: cashier.fullName,
-    email: cashier.email,
-    role: cashier.role,
-    publicId: cashier.publicId,
-    phone: cashier.phone,
-  };
+    return {
+        id: cashier._id,
+        fullName: cashier.fullName,
+        email: cashier.email,
+        role: cashier.role,
+        publicId: cashier.publicId,
+        phone: cashier.phone,
+    }
 }
 
 export async function getCashiers(query) {
-    const {
-        page = 1,
-        limit = 10,
-        name,
-        email,
-    } = query
+    const { page = 1, limit = 10, name, email } = query
 
     const filter = { role: 'cashier' }
     if (name) filter.fullName = { $regex: name, $options: 'i' }
@@ -73,21 +70,25 @@ export async function getCashiers(query) {
 
     const data = await Promise.all(
         cashiers.map(async (cashier) => {
-            const [totalCustomers, totalTransactions, totalLoans, transactionSummary] =
-                await Promise.all([
-                    Customer.countDocuments({
-                        $or: [
-                            { createdBy: cashier._id },
-                            { assignedTo: cashier._id },
-                        ],
-                    }),
-                    Transaction.countDocuments({ cashierId: cashier._id }),
-                    Loan.countDocuments({ createdBy: cashier._id }),
-                    Transaction.aggregate([
-                        { $match: { cashierId: cashier._id, status: 'approved' } },
-                        { $group: { _id: '$type', total: { $sum: '$amount' } } },
-                    ]),
-                ])
+            const [
+                totalCustomers,
+                totalTransactions,
+                totalLoans,
+                transactionSummary,
+            ] = await Promise.all([
+                Customer.countDocuments({
+                    $or: [
+                        { createdBy: cashier._id },
+                        { assignedTo: cashier._id },
+                    ],
+                }),
+                Transaction.countDocuments({ cashierId: cashier._id }),
+                Loan.countDocuments({ createdBy: cashier._id }),
+                Transaction.aggregate([
+                    { $match: { cashierId: cashier._id, status: 'approved' } },
+                    { $group: { _id: '$type', total: { $sum: '$amount' } } },
+                ]),
+            ])
 
             const summary = { deposits: 0, withdrawals: 0, loans: 0 }
             transactionSummary.forEach((t) => {
@@ -103,13 +104,15 @@ export async function getCashiers(query) {
                     fullName: cashier.fullName,
                     email: cashier.email,
                     createdAt: cashier.createdAt,
+                    phone: cashier.phone,
                 },
                 stats: {
                     totalCustomers,
                     totalTransactions,
                     totalLoans,
                     ...summary,
-                    netBalance: summary.deposits - summary.withdrawals - summary.loans,
+                    netBalance:
+                        summary.deposits - summary.withdrawals - summary.loans,
                 },
             }
         }),
@@ -173,7 +176,9 @@ export async function getCashierById(cashierId, query) {
         transactionSummary,
     ] = await Promise.all([
         Customer.find(customerFilter)
-            .select('fullName surname otherName publicId phone status createdAt')
+            .select(
+                'fullName surname otherName publicId phone status createdAt',
+            )
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit)),
@@ -182,7 +187,9 @@ export async function getCashierById(cashierId, query) {
 
         Transaction.find(transactionFilter)
             .populate('customerId', 'fullName surname otherName publicId phone')
-            .select('publicId type amount status note createdAt customerId loanId')
+            .select(
+                'publicId type amount status note createdAt customerId loanId',
+            )
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit)),
@@ -191,7 +198,9 @@ export async function getCashierById(cashierId, query) {
 
         Loan.find(loanFilter)
             .populate('customerId', 'fullName surname otherName publicId phone')
-            .select('publicId amount interest amountToPay monthlyPayment duration purpose repaymentMethod guarantor status createdAt customerId')
+            .select(
+                'publicId amount interest amountToPay monthlyPayment duration purpose repaymentMethod guarantor status createdAt customerId',
+            )
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit)),
@@ -273,7 +282,8 @@ export async function transferCustomer(customerId, newCashierId, adminId) {
     if (!customer) throw new AppError('Customer not found', 404)
 
     const cashier = await User.findOne({ publicId: newCashierId })
-    if (!cashier || cashier.role !== 'cashier') throw new AppError('Invalid cashier', 400)
+    if (!cashier || cashier.role !== 'cashier')
+        throw new AppError('Invalid cashier', 400)
 
     // ── Check if already assigned to this cashier ─────────────────────────────
     const currentAssignment = customer.assignedTo || customer.createdBy
