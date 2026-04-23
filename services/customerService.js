@@ -246,7 +246,7 @@ export async function deleteCustomer(customerId, user) {
   }
 
   // This triggers the pre('remove') hook automatically
-  await customer.remove();
+  await customer.deleteOne();
 
   // Log deletion
   await AuditLog.create({

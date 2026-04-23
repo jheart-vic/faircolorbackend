@@ -1,5 +1,8 @@
 import mongoose from 'mongoose'
 import { generatePublicId } from '../utils/publicId.js'
+import Transaction from './Transaction.js'
+import Loan from './Loan.js'
+import AuditLog from './AuditLog.js'
 
 const customerSchema = new mongoose.Schema(
     {
@@ -122,16 +125,20 @@ customerSchema.pre('validate', function (next) {
 customerSchema.virtual('accountStatus').get(function () {
   return this.isDeactivated ? 'deactivated' : 'active'
 })
-customerSchema.pre('remove', async function (next) {
+customerSchema.pre(
+  "deleteOne",
+  { document: true, query: false },
+  async function (next) {
     try {
-        await Transaction.deleteMany({ customerId: this._id })
-        await Loan.deleteMany({ customerId: this._id })
-        await AuditLog.deleteMany({ targetId: this._id })
-        next()
+      await Transaction.deleteMany({ customerId: this._id });
+      await Loan.deleteMany({ customerId: this._id });
+      await AuditLog.deleteMany({ targetId: this._id });
+      next();
     } catch (err) {
-        next(err)
+      next(err);
     }
-})
+  }
+);
 
 
 export default mongoose.model('Customer', customerSchema)

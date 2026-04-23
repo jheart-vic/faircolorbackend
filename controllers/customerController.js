@@ -107,7 +107,7 @@ export async function deleteCustomer(req, res, next) {
   try {
     const data = await customerService.deleteCustomer(
       req.params.customerId,
-      req.user._id
+      req.user
     );
 res.status(200).json({
       success: true,
