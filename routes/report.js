@@ -1,7 +1,7 @@
 import express from "express";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
-import { downloadCashierReport, downloadCustomerReport } from "../controllers/generateReportController.js";
+import { downloadCashierReport, downloadCustomerReport, getCashierReport, getCustomerReport } from "../controllers/generateReportController.js";
 
 const router = express.Router();
 
@@ -100,4 +100,9 @@ router.get(
   downloadCashierReport
 );
 
+router.get("/cashier/data",   protect,
+  authorize("admin"), getCashierReport)
+
+router.get("/customer/:customerId/data",protect,
+  authorize("admin", "cashier"), getCustomerReport);
 export default router;
