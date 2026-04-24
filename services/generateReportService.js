@@ -734,11 +734,11 @@ export async function generateCashierReport(query, adminUser, res) {
 }
 
 // ── Cashier Report JSON ───────────────────────────────────────────────────────
-export async function getCashierReportData(query, adminUser, res) {
+export async function getCashierReportData(cashierId, query, adminUser, res) {
     if (adminUser.role !== 'admin')
         throw new AppError('Only admin can view cashier reports', 403)
 
-    const { cashierId, filter, startDate, endDate } = query
+    const { filter, startDate, endDate } = query
     const cashier = await User.findOne({ publicId: cashierId })
     if (!cashier) throw new AppError('Cashier not found', 404)
 

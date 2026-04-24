@@ -20,9 +20,10 @@ export async function downloadCashierReport(req, res, next) {
     next(err);
   }
 }
+
 export async function getCashierReport(req, res, next) {
   try {
-    await ReportService.getCashierReportData(req.query, req.user, res);
+    await ReportService.getCashierReportData(req.params.cashierId, req.query, req.user, res);
   } catch (err) {
     next(err);
   }
