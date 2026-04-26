@@ -1,5 +1,5 @@
 import express from "express";
-import { createCashier, getCashierById, getCashiers, transferCustomerController } from "../controllers/userController.js";
+import { createCashier, deleteCashierController, getCashierById, getCashiers, transferCustomerController } from "../controllers/userController.js";
 import { protect } from "../middlewares/auth.js";
 import { authorize } from "../middlewares/role.js";
 
@@ -365,6 +365,55 @@ router.put(
   protect,
   authorize("admin"),
   transferCustomerController
+);
+
+/**
+ * @swagger
+ * /api/users/cashiers/{cashierId}:
+ *   delete:
+ *     summary: Delete a cashier
+ *     description: |
+ *       Admin can delete a cashier account.
+ *       The cashier must have no assigned or created customers before deletion.
+ *       Use the transfer-customer endpoint to reassign customers first.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cashierId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "CASH_123456"
+ *     responses:
+ *       200:
+ *         description: Cashier deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Cashier deleted successfully
+ *       400:
+ *         description: Cashier still has customers — transfer them first
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Admin only)
+ *       404:
+ *         description: Cashier not found
+ */
+router.delete(
+  "/cashiers/:cashierId",
+  protect,
+  authorize("admin"),
+  deleteCashierController
 );
 
 export default router;

@@ -5,6 +5,7 @@ import AuditLog from '../models/AuditLog.js'
 import Customer from '../models/Customer.js'
 import { normalizePhone } from '../utils/normalizePhone.js'
 import { formatCustomer } from '../utils/publicId.js'
+import AppError from '../utils/appError.js'
 
 export async function createCashier(payload, adminId) {
     const { fullName, email, password, phone } = payload
@@ -312,4 +313,36 @@ export async function transferCustomer(customerId, newCashierId, adminId) {
         .populate('approvedBy', 'fullName publicId')
 
     return formatCustomer(populated)
+}
+
+export async function deleteCashier(cashierId, adminId) {
+    const cashier = await User.findOne({ publicId: cashierId, role: 'cashier' })
+    if (!cashier) throw new AppError('Cashier not found', 404)
+
+    // ── Check if cashier still has customers ──────────────────────────────────
+    const customerCount = await Customer.countDocuments({
+        $or: [
+            { createdBy: cashier._id },
+            { assignedTo: cashier._id },
+        ],
+    })
+
+    if (customerCount > 0) {
+        throw new AppError(
+            `Cashier still has ${customerCount} customer(s). Transfer them before deleting.`,
+            400
+        )
+    }
+
+    await User.findByIdAndDelete(cashier._id)
+
+    await AuditLog.create({
+        action: 'DELETE_CASHIER',
+        performedBy: adminId,
+        targetId: cashier._id,          // ← also log who was deleted
+        metadata: {
+            deletedCashier: cashier.publicId,
+            fullName: cashier.fullName,
+        },
+    })
 }

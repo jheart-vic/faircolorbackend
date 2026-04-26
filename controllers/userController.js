@@ -47,3 +47,11 @@ export async function transferCustomerController(req, res) {
   });
 }
 
+export async function deleteCashierController(req, res, next) {
+    try {
+        await userService.deleteCashier(req.params.cashierId, req.user._id)
+        res.status(200).json({ success: true, message: 'Cashier deleted successfully' })
+    } catch (err) {
+        next(err)
+    }
+}
