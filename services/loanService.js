@@ -15,14 +15,16 @@ const INTEREST_RATES = {
 }
 
 export async function createLoan(payload, cashierId) {
-    const {
-        customerId,
-        amount,
-        duration,
-        purpose,
-        repaymentMethod,
-        guarantor,
-    } = payload
+    const { customerId, duration, purpose, repaymentMethod, guarantor } =
+        payload
+    const amount = Number(payload.amount)
+
+    if (isNaN(amount) || amount <= 0) {
+        throw new AppError(
+            'Amount must be a valid number greater than zero',
+            400,
+        )
+    }
 
     if (!customerId || !amount || !duration) {
         throw new AppError('All fields are required', 400)
