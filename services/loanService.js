@@ -3,6 +3,7 @@ import Customer from '../models/Customer.js'
 import AuditLog from '../models/AuditLog.js'
 import Transaction from '../models/Transaction.js'
 import AppError from '../utils/appError.js'
+import mongoose from 'mongoose'
 
 const INTEREST_RATES = {
     1: 12,
