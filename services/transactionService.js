@@ -153,7 +153,7 @@ export async function approveTransaction(transactionId, adminId) {
 }
 
 export async function rejectTransaction(transactionId, adminId) {
-    const transaction = await Transaction.findOne(transactionId)
+    const transaction = await Transaction.findOne({ publicId: transactionId })
 
     if (!transaction) throw new AppError('Transaction not found', 404)
 
