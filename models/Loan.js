@@ -29,6 +29,13 @@ const guarantorSchema = new mongoose.Schema({
     country: { type: String, default: 'Nigeria' },
 }, { _id: false })
 
+// A single repayment installment — lives inside the loan it belongs to.
+const repaymentSchema = new mongoose.Schema({
+    date: { type: Date },
+    amount: { type: Number, required: true, min: 1 },
+    balance: { type: Number }, // running balance after this payment (from the ledger)
+}, { _id: false })
+
 const loanSchema = new mongoose.Schema(
     {
         customerId: {
@@ -73,6 +80,10 @@ const loanSchema = new mongoose.Schema(
         deposit: { type: Number },        // upfront deposit / collateral
         formInsurance: { type: Number },
 
+        // ── Repayments (embedded — a loan owns its repayment schedule) ─────────
+        repayments: { type: [repaymentSchema], default: [] },
+        totalRepaid: { type: Number, default: 0 }, // sum of repayment amounts
+
         // ── Status ────────────────────────────────────────────────────────────
         status: {
             type: String,
@@ -97,6 +108,13 @@ const loanSchema = new mongoose.Schema(
         rejectedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
+        },
+
+        // ── Import metadata (migration bookkeeping; ignore in app logic) ───────
+        _import: {
+            source: { type: String },             // e.g. "LOAN REPAYMENT sheet"
+            ref: { type: String, index: true },    // idempotency key for re-runs
+            note: { type: String },                // review flags, if any
         },
     },
     { timestamps: true },

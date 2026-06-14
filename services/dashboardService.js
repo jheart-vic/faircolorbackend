@@ -3,6 +3,7 @@ import Customer from '../models/Customer.js'
 import { getDateRange } from '../utils/dateFilter.js'
 import User from '../models/User.js'
 import mongoose from 'mongoose'
+import Loan from '../models/Loan.js'
 
 // export async function getCashierDashboard(userId, filter, status) {
 //   const dateFilter = getDateRange(filter);
@@ -186,6 +187,18 @@ export async function getAdminDashboard({
             },
         },
     ])
+    const loanAgg = await Loan.aggregate([
+        { $match: { ...statusMatch, ...dateMatch } },
+        {
+            $group: {
+                _id: null,
+                total: { $sum: '$amount' },        // total disbursed principal
+                outstanding: { $sum: { $subtract: ['$amountToPay', '$totalRepaid'] } },
+                count: { $sum: 1 },
+            },
+        },
+        ])
+    const loanStats = loanAgg[0] || { total: 0, outstanding: 0, count: 0 }
 
     const summary = { deposit: 0, withdrawal: 0, loan: 0 }
     transactions.forEach((t) => (summary[t._id] = t.totalAmount))
@@ -283,7 +296,7 @@ export async function getAdminDashboard({
         cards: {
             deposits: summary.deposit,
             withdrawals: summary.withdrawal,
-            loans: summary.loan,
+            loans: loanStats.total,
             customers: totalCustomers,
         },
         pending: {
