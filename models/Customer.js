@@ -20,7 +20,7 @@ const customerSchema = new mongoose.Schema(
         },
         surname: {
             type: String,
-            required: true,
+            // required: true,
             trim: true,
         },
         otherName: {
@@ -50,12 +50,13 @@ const customerSchema = new mongoose.Schema(
             type: String,
             required: false,
             unique: true,
+            sparse: true,
             index: true,
         },
         email: { type: String, trim: true },
         address: {
             type: String,
-            required: true,
+            // required: true,
         },
         businessAddress: { type: String },
 
@@ -111,7 +112,11 @@ const customerSchema = new mongoose.Schema(
             ref: 'User',
         },
     },
-    {timestamps: true,  toJSON: { virtuals: true }, toObject: { virtuals: true }}
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true },
+    },
 )
 customerSchema.pre('validate', function (next) {
     if (!this.publicId) {
@@ -123,22 +128,21 @@ customerSchema.pre('validate', function (next) {
     next()
 })
 customerSchema.virtual('accountStatus').get(function () {
-  return this.isDeactivated ? 'deactivated' : 'active'
+    return this.isDeactivated ? 'deactivated' : 'active'
 })
 customerSchema.pre(
-  "deleteOne",
-  { document: true, query: false },
-  async function (next) {
-    try {
-      await Transaction.deleteMany({ customerId: this._id });
-      await Loan.deleteMany({ customerId: this._id });
-      await AuditLog.deleteMany({ targetId: this._id });
-      next();
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
+    'deleteOne',
+    { document: true, query: false },
+    async function (next) {
+        try {
+            await Transaction.deleteMany({ customerId: this._id })
+            await Loan.deleteMany({ customerId: this._id })
+            await AuditLog.deleteMany({ targetId: this._id })
+            next()
+        } catch (err) {
+            next(err)
+        }
+    },
+)
 
 export default mongoose.model('Customer', customerSchema)

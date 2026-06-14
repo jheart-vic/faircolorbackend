@@ -66,6 +66,13 @@ const loanSchema = new mongoose.Schema(
             default: 'monthly',
         },
 
+        // ── Disbursement details (from the transfers sheet) ────────────────────
+        disbursementDate: { type: Date },
+        maturityDate: { type: Date },
+        interestAmount: { type: Number }, // interest in naira (distinct from interest %)
+        deposit: { type: Number },        // upfront deposit / collateral
+        formInsurance: { type: Number },
+
         // ── Status ────────────────────────────────────────────────────────────
         status: {
             type: String,

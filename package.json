@@ -34,6 +34,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "validatorjs": "^3.22.1",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "xlsx": "^0.18.5"
   }
 }
