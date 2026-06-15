@@ -172,25 +172,27 @@ export async function getLoans(query) {
         endDate,
     } = query
 
-    const filter = {}
-
-    if (status) filter.status = status
+    // Base filter (NO status) — the stat cards span every status.
+    const baseFilter = {}
 
     if (customerId) {
         const customer = await Customer.findOne({ publicId: customerId })
-        if (customer) filter.customerId = customer._id
+        if (customer) baseFilter.customerId = customer._id
     }
 
     if (startDate || endDate) {
-        filter.createdAt = {}
-        if (startDate) filter.createdAt.$gte = new Date(startDate)
-        if (endDate) filter.createdAt.$lte = new Date(endDate)
+        baseFilter.createdAt = {}
+        if (startDate) baseFilter.createdAt.$gte = new Date(startDate)
+        if (endDate) baseFilter.createdAt.$lte = new Date(endDate)
     }
+
+    // List filter = base + status (status narrows only the table).
+    const listFilter = { ...baseFilter, ...(status ? { status } : {}) }
 
     const skip = (page - 1) * limit
 
-    const [data, total] = await Promise.all([
-        Loan.find(filter)
+    const [data, total, statsAgg] = await Promise.all([
+        Loan.find(listFilter)
             .populate(
                 'customerId',
                 'fullName surname otherName phone publicId address',
@@ -202,11 +204,42 @@ export async function getLoans(query) {
             .skip(skip)
             .limit(Number(limit)),
 
-        Loan.countDocuments(filter),
+        Loan.countDocuments(listFilter),
+
+        // One pass: counts + amounts grouped by status, across ALL statuses.
+        Loan.aggregate([
+            // { $match: baseFilter },
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 },
+                    amount: { $sum: '$amount' },
+                },
+            },
+        ]),
     ])
+
+    // Shape the stats for the cards.
+    const stats = {
+        total: 0,
+        totalAmount: 0,
+        byStatus: {
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            disbursed: 0,
+            completed: 0,
+        },
+    }
+    for (const s of statsAgg) {
+        stats.total += s.count
+        stats.totalAmount += s.amount
+        if (s._id in stats.byStatus) stats.byStatus[s._id] = s.count
+    }
 
     return {
         data,
+        stats,
         pagination: {
             total,
             page: Number(page),
