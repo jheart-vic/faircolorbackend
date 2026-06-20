@@ -14,8 +14,8 @@ export async function login(req, res, next) {
     res.status(200).json({
       success: true,
       message: "Login successful",
-      accessToken: data.accessToken,
-      user: data.user,
+      // accessToken: data.accessToken,
+      // user: data.user,
     });
   } catch (err) {
     next(err);
@@ -32,7 +32,7 @@ export async function refresh(req, res, next) {
     setRefreshCookie(res, data.refreshToken);
     res.status(200).json({
       success: true,
-      accessToken: data.accessToken,
+      // accessToken: data.accessToken,
     });
   } catch (err) {
     next(err);
