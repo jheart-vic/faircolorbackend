@@ -2,6 +2,7 @@ import * as authService from "../services/authService.js";
 import {
   setRefreshCookie,
   clearRefreshCookie,
+  setAccessCookie,
 } from "../utils/token.js";
 
 // ── Login ─────────────────────────────
