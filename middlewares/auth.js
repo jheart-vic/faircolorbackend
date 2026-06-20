@@ -4,11 +4,11 @@ import AppError from "../utils/appError.js";
 
 export async function protect(req, res, next) {
   try {
-    let token;
-
-    if (req.headers.authorization?.startsWith("Bearer")) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token =
+      req.cookies?.accessToken ||
+      (req.headers.authorization?.startsWith("Bearer")
+        ? req.headers.authorization.split(" ")[1]
+        : null);
 
     if (!token) {
       return next(new AppError("Not authorized, no token", 401));
@@ -18,13 +18,13 @@ export async function protect(req, res, next) {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      if (err.name === "TokenExpiredError") {
-        return next(new AppError("Session expired, please log in again", 401));
-      }
-      if (err.name === "JsonWebTokenError") {
-        return next(new AppError("Invalid token, please log in again", 401));
-      }
-      return next(new AppError("Authentication failed", 401));
+      const message =
+        err.name === "TokenExpiredError"
+          ? "Session expired, please log in again"
+          : err.name === "JsonWebTokenError"
+          ? "Invalid token, please log in again"
+          : "Authentication failed";
+      return next(new AppError(message, 401));
     }
 
     const user = await User.findById(decoded.id);

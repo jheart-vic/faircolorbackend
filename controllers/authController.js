@@ -10,19 +10,18 @@ export async function login(req, res, next) {
     const data = await authService.loginUser(req.body);
 
     setRefreshCookie(res, data.refreshToken);
+    setAccessCookie(res, data.accessToken);
 
     res.status(200).json({
       success: true,
       message: "Login successful",
-      // accessToken: data.accessToken,
-      // user: data.user,
+      user: data.user, // user info is safe to return; only the token moves to the cookie
     });
   } catch (err) {
     next(err);
   }
 }
 
-// ── Refresh ───────────────────────────
 export async function refresh(req, res, next) {
   try {
     const token = req.cookies?.refreshToken;
@@ -30,16 +29,14 @@ export async function refresh(req, res, next) {
     const data = await authService.refreshTokenService(token);
 
     setRefreshCookie(res, data.refreshToken);
-    res.status(200).json({
-      success: true,
-      // accessToken: data.accessToken,
-    });
+    setAccessCookie(res, data.accessToken);
+
+    res.status(200).json({ success: true });
   } catch (err) {
     next(err);
   }
 }
 
-// ── Logout ────────────────────────────
 export async function logout(req, res, next) {
   try {
     const token = req.cookies?.refreshToken;
@@ -47,6 +44,7 @@ export async function logout(req, res, next) {
     await authService.logoutService(token);
 
     clearRefreshCookie(res);
+    clearAccessCookie(res);
 
     res.status(200).json({
       success: true,

@@ -28,6 +28,25 @@ export const refreshCookieOptions = {
   path: "/api/auth",
 };
 
+export function setAccessCookie(res, token) {
+  res.cookie("accessToken", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: 15 * 60 * 1000,
+    path: "/api/auth",
+  });
+}
+
+export function clearAccessCookie(res) {
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/api/auth",
+  });
+}
+
 export function setRefreshCookie(res, token) {
   res.cookie("refreshToken", token, refreshCookieOptions);
 }
