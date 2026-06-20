@@ -3,6 +3,7 @@ import {
   setRefreshCookie,
   clearRefreshCookie,
   setAccessCookie,
+  clearAccessCookie,
 } from "../utils/token.js";
 
 // ── Login ─────────────────────────────

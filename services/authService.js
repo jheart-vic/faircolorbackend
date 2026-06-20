@@ -62,13 +62,8 @@ export async function refreshTokenService(token) {
 export async function logoutService(token) {
   if (!token) return;
 
-  const user = await User.findOne({ refreshToken: token }).select(
-    "+refreshToken +refreshTokenExpiresAt"
+  await User.updateOne(
+    { refreshToken: token },
+    { $unset: { refreshToken: "", refreshTokenExpiresAt: "" } }
   );
-
-  if (user) {
-    user.refreshToken = undefined;
-    user.refreshTokenExpiresAt = undefined;
-    await user.save();
-  }
 }
