@@ -9,9 +9,9 @@ import {
 export async function loginUser(payload) {
   const { email, password } = payload;
 
-  const user = await User.findOne({ email }).select(
-    "+password +refreshToken +refreshTokenExpiresAt"
-  );
+  const user = await User.findOne({ email })
+    .select("+password +refreshToken +refreshTokenExpiresAt")
+    .populate("role", "name slug permissions");
 
   if (!user || !(await user.comparePassword(password))) {
     throw new AppError("Invalid email or password", 401);
@@ -33,7 +33,12 @@ export async function loginUser(payload) {
       publicId: user.publicId,
       fullName: user.fullName,
       email: user.email,
-      role: user.role,
+      role: {
+        id: user.role._id,
+        name: user.role.name,
+        slug: user.role.slug,
+        permissions: user.role.permissions,
+      },
     },
   };
 }

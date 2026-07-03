@@ -5,56 +5,6 @@ import User from '../models/User.js'
 import mongoose from 'mongoose'
 import Loan from '../models/Loan.js'
 
-// export async function getCashierDashboard(userId, filter, status) {
-//   const dateFilter = getDateRange(filter);
-//   const dateMatch = Object.keys(dateFilter).length ? { createdAt: dateFilter } : {};
-//   const statusMatch = status ? { status } : {};
-
-//   const match = {
-//     cashierId: new mongoose.Types.ObjectId(userId),
-//     ...statusMatch,
-//     ...dateMatch,
-//   };
-
-//   const transactions = await Transaction.aggregate([
-//     { $match: match },
-//     {
-//       $group: {
-//         _id: "$type",
-//         totalAmount: { $sum: "$amount" },
-//         count: { $sum: 1 },
-//       },
-//     },
-//   ]);
-
-//   const summary = {
-//     deposit: 0,
-//     withdrawal: 0,
-//     loan: 0,
-//   };
-
-//   transactions.forEach((t) => {
-//     summary[t._id] = t.totalAmount;
-//   });
-
-//   const customerFilter = {
-//     createdBy: new mongoose.Types.ObjectId(userId),
-//     isDeactivated: false,
-//     ...dateMatch,
-//   };
-
-//   const customersCreated = await Customer.countDocuments(customerFilter);
-
-//   return {
-//     cards: {
-//       deposits: summary.deposit,
-//       withdrawals: summary.withdrawal,
-//       loans: summary.loan,
-//       customers: customersCreated,
-//     },
-//   };
-// }
-
 export async function getCashierDashboard(userId, filter, status) {
     const dateFilter = getDateRange(filter)
     const dateMatch = Object.keys(dateFilter).length
@@ -160,6 +110,83 @@ export async function getCashierDashboard(userId, filter, status) {
         customerStatus, // { pending: N, approved: N }
         recentTransactions,
         recentCustomers,
+    }
+}
+
+export async function getAccountManagerDashboard(userId, filter) {
+    const dateFilter = getDateRange(filter)
+    const dateMatch = Object.keys(dateFilter).length
+        ? { createdAt: dateFilter }
+        : {}
+    const managerId = new mongoose.Types.ObjectId(userId)
+
+    // ===== Assigned customers =====
+    const customerFilter = { assignedTo: managerId, ...dateMatch }
+    const totalAssignedCustomers = await Customer.countDocuments({
+        assignedTo: managerId,
+    })
+
+    const recentAssignedCustomers = await Customer.find(customerFilter)
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('fullName surname otherName phone publicId status createdAt')
+
+    // ===== Loans tied to assigned customers =====
+    const assignedCustomerIds = await Customer.find({
+        assignedTo: managerId,
+    }).distinct('_id')
+
+    const pendingLoans = await Loan.find({
+        customerId: { $in: assignedCustomerIds },
+        status: 'pending',
+    })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate('customerId', 'fullName publicId phone')
+        .select(
+            'publicId amount duration purpose status recommendation createdAt customerId',
+        )
+
+    const pendingLoanCount = await Loan.countDocuments({
+        customerId: { $in: assignedCustomerIds },
+        status: 'pending',
+    })
+
+    // ===== Repayment tracking on approved loans =====
+    const repaymentAgg = await Loan.aggregate([
+        {
+            $match: {
+                customerId: { $in: assignedCustomerIds },
+                status: 'approved',
+            },
+        },
+        {
+            $group: {
+                _id: null,
+                totalToPay: { $sum: '$amountToPay' },
+                totalRepaid: { $sum: { $ifNull: ['$totalRepaid', 0] } },
+                count: { $sum: 1 },
+            },
+        },
+    ])
+    const repayment = repaymentAgg[0] || {
+        totalToPay: 0,
+        totalRepaid: 0,
+        count: 0,
+    }
+
+    return {
+        cards: {
+            assignedCustomers: totalAssignedCustomers,
+            pendingLoans: pendingLoanCount,
+            outstandingRepayments: Math.max(
+                repayment.totalToPay - repayment.totalRepaid,
+                0,
+            ),
+        },
+        pendingLoans,
+        recentAssignedCustomers,
+        repayment,
     }
 }
 

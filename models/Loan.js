@@ -101,6 +101,19 @@ const loanSchema = new mongoose.Schema(
             ref: 'User',
             required: true,
         },
+        // Set when an Account Manager reviews the application and recommends
+        // (or declines to recommend) it before it reaches an Admin/Super Admin
+        // for the final approve/reject decision.
+        recommendedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+        },
+        recommendation: {
+            type: String,
+            enum: ['recommended', 'not_recommended'],
+        },
+        recommendationNote: { type: String, trim: true },
+        recommendedAt: { type: Date },
         approvedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',

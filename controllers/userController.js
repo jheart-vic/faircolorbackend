@@ -1,12 +1,12 @@
 import * as userService from "../services/userService.js";
 
-export async function createCashier(req, res, next) {
+export async function createStaff(req, res, next) {
   try {
-    const data = await userService.createCashier(req.body, req.user.id);
+    const data = await userService.createStaff(req.body, req.user);
 
     res.status(201).json({
       success: true,
-      message: "Cashier created successfully",
+      message: "Staff member created successfully",
       data,
     });
   } catch (err) {
@@ -14,43 +14,48 @@ export async function createCashier(req, res, next) {
   }
 }
 
-export async function getCashiers(req, res, next) {
+export async function getStaff(req, res, next) {
     try {
-        const data = await userService.getCashiers(req.query)
+        const data = await userService.getStaff(req.query)
         res.status(200).json({ success: true, ...data })
     } catch (err) {
         next(err)
     }
 }
 
-export async function getCashierById(req, res, next) {
+export async function getStaffById(req, res, next) {
     try {
-        const data = await userService.getCashierById(req.params.cashierId, req.query)
+        const data = await userService.getStaffById(req.params.staffId, req.query)
         res.status(200).json({ success: true, data })
     } catch (err) {
         next(err)
     }
 }
 
-export async function transferCustomerController(req, res) {
-  const { customerId, newCashierId } = req.body;
+export async function transferCustomerController(req, res, next) {
+  try {
+    const { customerId, newStaffId } = req.body;
 
-  const result = await userService.transferCustomer(
-    customerId,
-    newCashierId,
-    req.user._id
-  );
+    const result = await userService.transferCustomer(
+      customerId,
+      newStaffId,
+      req.user._id
+    );
 
-  res.json({
-    message: "Customer transferred successfully",
-    data: result,
-  });
+    res.json({
+      success: true,
+      message: "Customer transferred successfully",
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
 }
 
-export async function deleteCashierController(req, res, next) {
+export async function deleteStaffController(req, res, next) {
     try {
-        await userService.deleteCashier(req.params.cashierId, req.user._id)
-        res.status(200).json({ success: true, message: 'Cashier deleted successfully' })
+        await userService.deleteStaff(req.params.staffId, req.user)
+        res.status(200).json({ success: true, message: 'Staff member deleted successfully' })
     } catch (err) {
         next(err)
     }

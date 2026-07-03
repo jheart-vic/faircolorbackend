@@ -42,3 +42,21 @@ export async function getCashierDashboard(req, res, next) {
     next(err);
   }
 }
+
+export async function getAccountManagerDashboard(req, res, next) {
+  try {
+    const filter = req.query.filter || "monthly";
+
+    const data = await dashboardService.getAccountManagerDashboard(
+      req.user._id,
+      filter
+    );
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}

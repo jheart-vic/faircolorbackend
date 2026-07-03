@@ -30,10 +30,23 @@ export async function approveTransactionController(req, res, next) {
   try {
     const data = await transactionService.approveTransaction(
       req.params.transactionId,
-      req.user._id
+      req.user
     );
 
     res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rejectTransactionController(req, res, next) {
+  try {
+    const data = await transactionService.rejectTransaction(
+      req.params.transactionId,
+      req.user._id
+    );
+
+    res.json({ success: true, message: "Transaction rejected", data });
   } catch (err) {
     next(err);
   }

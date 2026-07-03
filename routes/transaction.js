@@ -1,14 +1,15 @@
 import express from "express";
 import * as controller from "../controllers/transactionController.js";
 import { protect } from "../middlewares/auth.js";
-import { authorize } from "../middlewares/role.js";
+import { requirePermission } from "../middlewares/permission.js";
+import { PERMISSIONS } from "../utils/permissions.js";
 const router = express.Router();
 
 /**
  * @swagger
  * /api/transactions/deposit:
  *   post:
- *     summary: Create deposit (Cashier only)
+ *     summary: Create deposit (any role with transactions.create — Cashier by default)
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -34,7 +35,7 @@ const router = express.Router();
 router.post(
   "/deposit",
   protect,
-  authorize("cashier"),
+  requirePermission(PERMISSIONS.TRANSACTIONS_CREATE),
   controller.createDepositController
 );
 
@@ -42,7 +43,7 @@ router.post(
  * @swagger
  * /api/transactions/withdraw:
  *   post:
- *     summary: Create withdrawal (Cashier only)
+ *     summary: Create withdrawal (any role with transactions.create — Cashier by default)
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -67,7 +68,7 @@ router.post(
 router.post(
   "/withdraw",
   protect,
-  authorize("cashier"),
+  requirePermission(PERMISSIONS.TRANSACTIONS_CREATE),
   controller.createWithdrawalController
 );
 
@@ -76,7 +77,7 @@ router.post(
  * @swagger
  * /api/transactions/{transactionId}/approve:
  *   patch:
- *     summary: Approve transaction (Admin only)
+ *     summary: Approve a pending transaction (Admin ≤₦200,000; Super Admin for any amount)
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -97,15 +98,46 @@ router.post(
 router.patch(
   "/:transactionId/approve",
   protect,
-  authorize("admin"),
+  requirePermission(
+    PERMISSIONS.TRANSACTIONS_APPROVE_TIER1,
+    PERMISSIONS.TRANSACTIONS_APPROVE_TIER2
+  ),
   controller.approveTransactionController
+);
+
+/**
+ * @swagger
+ * /api/transactions/{transactionId}/reject:
+ *   patch:
+ *     summary: Reject a pending transaction (Admin & Super Admin)
+ *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transactionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Transaction rejected
+ */
+router.patch(
+  "/:transactionId/reject",
+  protect,
+  requirePermission(
+    PERMISSIONS.TRANSACTIONS_APPROVE_TIER1,
+    PERMISSIONS.TRANSACTIONS_APPROVE_TIER2
+  ),
+  controller.rejectTransactionController
 );
 
 /**
  * @swagger
  * /api/transactions:
  *   get:
- *     summary: Get transactions (Admin & Cashier)
+ *     summary: Get transactions (full list for Admin/Super Admin, own transactions otherwise)
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -147,7 +179,10 @@ router.patch(
 router.get(
   "/",
   protect,
-  authorize("admin", "cashier"),
+  requirePermission(
+    PERMISSIONS.TRANSACTIONS_VIEW_ALL,
+    PERMISSIONS.TRANSACTIONS_VIEW_OWN
+  ),
   controller.getTransactionsController
 );
 

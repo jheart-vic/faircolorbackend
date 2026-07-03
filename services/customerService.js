@@ -4,35 +4,8 @@ import { normalizePhone } from "../utils/normalizePhone.js";
 import Transaction from "../models/Transaction.js";
 import { formatCustomer } from "../utils/publicId.js";
 import AppError from "../utils/appError.js";
-
-// export async function createCustomer(payload, userId) {
-//   const { fullName, phone, address } = payload;
-
-//   const normalizedPhone = normalizePhone(phone);
-
-//   const existing = await Customer.findOne({ phone: normalizedPhone });
-//   if (existing) {
-//     throw new AppError("Customer with this phone already exists", 400);
-//   }
-
-//   const customer = await Customer.create({
-//     fullName,
-//     phone: normalizedPhone,
-//     address,
-//     createdBy: userId,
-//     status: "pending",
-//   });
-
-//   await customer.populate({ path: "createdBy", select: "fullName email" });
-//   // Audit log
-//   await AuditLog.create({
-//     action: "CREATE_CUSTOMER",
-//     performedBy: userId,
-//     targetId: customer._id,
-//   });
-
-//   return formatCustomer(customer);
-// }
+import { PERMISSIONS } from "../utils/permissions.js";
+import * as notificationService from "./notificationService.js";
 
 export async function createCustomer(payload, userId) {
     const {
@@ -71,6 +44,18 @@ export async function createCustomer(payload, userId) {
         targetId: customer._id,
     })
 
+    await notificationService.notifyByPermission(
+        PERMISSIONS.CUSTOMERS_APPROVE,
+        {
+            type: 'customer.pending_approval',
+            title: 'New customer pending approval',
+            message: `${customer.fullName} was registered and is awaiting approval.`,
+            meta: { customerId: customer.publicId },
+            relatedId: customer._id,
+        },
+        { excludeUserId: userId },
+    )
+
     return formatCustomer(customer)
 }
 
@@ -87,7 +72,7 @@ export async function getCustomers(query, user) {
     const conditions = []
 
     // 🔐 Role-based filtering
-    if (user.role === 'cashier') {
+    if (!user.hasPermission(PERMISSIONS.CUSTOMERS_VIEW_ALL)) {
         conditions.push({
             $or: [
                 { createdBy: user._id },
@@ -177,6 +162,53 @@ export async function approveCustomer(customerId, adminId) {
     targetId: customer._id,
   });
 
+  await notificationService.notifyUsers(
+    [customer.assignedTo, customer.createdBy].filter(Boolean),
+    {
+      type: "customer.approved",
+      title: "Customer approved",
+      message: `${customer.fullName} (${customer.publicId}) has been approved.`,
+      meta: { customerId: customer.publicId },
+      relatedId: customer._id,
+    },
+  );
+
+  return customer;
+}
+
+// Super Admin only — undoes a customer approval, sending them back to
+// 'pending'. Does not touch any transactions already made against the
+// customer's account; those remain as-is.
+export async function revertCustomerToPending(customerId, actor) {
+  const customer = await Customer.findOne({ publicId: customerId });
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  if (customer.status !== "approved") {
+    throw new AppError("Only approved customers can be reverted to pending", 400);
+  }
+
+  customer.status = "pending";
+  customer.isApproved = false;
+  customer.approvedBy = undefined;
+  await customer.save();
+
+  await AuditLog.create({
+    action: "REVERT_CUSTOMER",
+    performedBy: actor._id,
+    targetId: customer._id,
+  });
+
+  await notificationService.notifyUsers(
+    [customer.assignedTo, customer.createdBy].filter(Boolean),
+    {
+      type: "customer.pending_approval",
+      title: "Customer reverted to pending",
+      message: `${actor.fullName} reverted ${customer.fullName} (${customer.publicId}) back to pending approval.`,
+      meta: { customerId: customer.publicId },
+      relatedId: customer._id,
+    },
+  );
+
   return customer;
 }
 
@@ -222,7 +254,7 @@ export async function getCustomerBalanceByPublicId(customerId, user) {
   if (!customer) throw new AppError("Customer not found", 404);
 
   // 🔐 ACCESS CONTROL
-  if (user.role === "cashier") {
+  if (!user.hasPermission(PERMISSIONS.CUSTOMERS_VIEW_ALL)) {
     const isOwner =
       customer.createdBy.toString() === user._id.toString() ||
       (customer.assignedTo &&
@@ -240,8 +272,8 @@ export async function deleteCustomer(customerId, user) {
   const customer = await Customer.findOne({ publicId: customerId });
   if (!customer) throw new AppError("Customer not found", 404);
 
-  // Only admin
-  if (user.role !== "admin") {
+  // Only actors with delete rights (Super Admin)
+  if (!user.hasPermission(PERMISSIONS.CUSTOMERS_DELETE)) {
     throw new AppError("Not authorized to delete this customer", 403);
   }
 

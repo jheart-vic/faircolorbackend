@@ -1,7 +1,8 @@
 import express from "express";
-import { approveCustomer, createCustomer, deleteCustomer, getCustomerBalance, getCustomers, toggleDeactivate } from "../controllers/customerController.js";
+import { approveCustomer, createCustomer, deleteCustomer, getCustomerBalance, getCustomers, revertCustomer, toggleDeactivate } from "../controllers/customerController.js";
 import { protect } from "../middlewares/auth.js";
-import { authorize } from "../middlewares/role.js";
+import { requirePermission } from "../middlewares/permission.js";
+import { PERMISSIONS } from "../utils/permissions.js";
 
 const router = express.Router();
 
@@ -10,13 +11,13 @@ const router = express.Router();
  * @swagger
  * /api/customers:
  *   get:
- *     summary: Get customers (Admin & Cashier)
+ *     summary: Get customers (full list for Admin/Super Admin, own/assigned customers otherwise)
  *     description: |
  *       Fetch customers with pagination and optional filters.
  *
  *       **Access Control:**
  *       - Admin → Can view all customers
- *       - Cashier → Can only view customers they created or assigned to them
+ *       - Cashier / Account Manager (or any role without customers.view.all) → can only view customers they created or are assigned to
  *
  *     tags:
  *       - Customers
@@ -150,17 +151,17 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (Invalid role)
+ *         description: Forbidden - requires customers.view.all or customers.view.own permission
  *       500:
  *         description: Server error
  */
-router.get("/", protect, authorize("admin", "cashier"), getCustomers);
+router.get("/", protect, requirePermission(PERMISSIONS.CUSTOMERS_VIEW_ALL, PERMISSIONS.CUSTOMERS_VIEW_OWN), getCustomers);
 
 /**
  * @swagger
  * /api/customers:
  *   post:
- *     summary: Create a customer (Admin & Cashier)
+ *     summary: Create a customer (any role with customers.create)
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -270,13 +271,13 @@ router.get("/", protect, authorize("admin", "cashier"), getCustomers);
  *       403:
  *         description: Forbidden
  */
-router.post("/", protect, authorize("admin", "cashier"), createCustomer);
+router.post("/", protect, requirePermission(PERMISSIONS.CUSTOMERS_CREATE), createCustomer);
 
 /**
  * @swagger
  * /api/customers/{customerId}/approve:
  *   patch:
- *     summary: Approve customer (Admin only)
+ *     summary: Approve customer (Admin & Super Admin)
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -302,15 +303,46 @@ router.post("/", protect, authorize("admin", "cashier"), createCustomer);
 router.patch(
   "/:customerId/approve",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.CUSTOMERS_APPROVE),
   approveCustomer
+);
+
+/**
+ * @swagger
+ * /api/customers/{customerId}/revert:
+ *   patch:
+ *     summary: Revert an approved customer back to pending (Super Admin only)
+ *     tags: [Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Customer reverted to pending
+ *       400:
+ *         description: Only approved customers can be reverted
+ *       403:
+ *         description: Forbidden - Super Admin only
+ *       404:
+ *         description: Customer not found
+ */
+router.patch(
+  "/:customerId/revert",
+  protect,
+  requirePermission(PERMISSIONS.CUSTOMERS_REVERT),
+  revertCustomer
 );
 
 /**
  * @swagger
  * /api/customers/{customerId}/toggle-deactivate:
  *   patch:
- *     summary: Deactivate customer (Admin only)
+ *     summary: Deactivate customer (Admin & Super Admin)
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -334,7 +366,7 @@ router.patch(
 router.patch(
   "/:customerId/toggle-deactivate",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.CUSTOMERS_MANAGE),
  toggleDeactivate
 );
 
@@ -342,7 +374,7 @@ router.patch(
  * @swagger
  * /api/customers/{customerId}/delete:
  *   delete:
- *     summary: Hard delete customer (Admin only)
+ *     summary: Hard delete customer (Super Admin only)
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -366,7 +398,7 @@ router.patch(
 router.delete(
   "/:customerId/delete",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.CUSTOMERS_DELETE),
   deleteCustomer
 );
 
@@ -379,7 +411,7 @@ router.delete(
  *     summary: Get customer balance
  *     description: |
  *       - Admin → can view any customer balance
- *       - Cashier → can only view balances of customers they own
+ *       - Roles without customers.view.all → can only view balances of customers they own or are assigned to
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -387,7 +419,7 @@ router.delete(
 router.get(
   "/:customerId/balance",
   protect,
-  authorize("admin", "cashier"),
+  requirePermission(PERMISSIONS.CUSTOMERS_VIEW_ALL, PERMISSIONS.CUSTOMERS_VIEW_OWN),
   getCustomerBalance
 );
 

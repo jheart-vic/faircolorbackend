@@ -27,9 +27,10 @@ export async function protect(req, res, next) {
       return next(new AppError(message, 401));
     }
 
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).populate("role");
     if (!user) return next(new AppError("User no longer exists", 404));
     if (!user.isActive) return next(new AppError("Account is deactivated", 403));
+    if (!user.role) return next(new AppError("User has no role assigned, contact an administrator", 403));
 
     req.user = user;
     next();

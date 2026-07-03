@@ -1,6 +1,7 @@
 import express from "express";
 import { protect } from "../middlewares/auth.js";
-import { authorize } from "../middlewares/role.js";
+import { requirePermission } from "../middlewares/permission.js";
+import { PERMISSIONS } from "../utils/permissions.js";
 import { downloadCashierReport, downloadCustomerReport, getCashierReport, getCustomerReport } from "../controllers/generateReportController.js";
 
 const router = express.Router();
@@ -42,7 +43,7 @@ const router = express.Router();
 router.get(
   "/:customerId/report",
   protect,
-  authorize("admin", "cashier"),
+  requirePermission(PERMISSIONS.REPORTS_GENERATE_ALL, PERMISSIONS.REPORTS_GENERATE_OWN),
   downloadCustomerReport
 );
 
@@ -50,9 +51,9 @@ router.get(
  * @swagger
  * /api/reports/cashier-report:
  *   get:
- *     summary: Download cashier financial report (PDF)http://localhost:PORT/api/reports/cashier-report?cashierId=CASH-XXXXXX&filter=monthly
+ *     summary: Download staff financial report (PDF) (Admin & Super Admin) — GET /api/reports/cashier-report?cashierId=CASH-XXXXXX&filter=monthly
  *     description: |
- *       Admin-only endpoint to generate a cashier statement.
+ *       Admin & Super Admin endpoint to generate a staff performance statement.
  *
  *       Filters:
  *       - daily
@@ -96,7 +97,7 @@ router.get(
 router.get(
   "/cashier-report",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.REPORTS_GENERATE_ALL),
   downloadCashierReport
 );
 
@@ -104,9 +105,9 @@ router.get(
  * @swagger
  * /api/reports/cashier/{cashierId}/data:
  *   get:
- *     summary: Get cashier financial report (JSON)
+ *     summary: Get staff financial report (JSON) (Admin & Super Admin)
  *     description: |
- *       Admin-only endpoint to retrieve cashier transaction data in JSON format.
+ *       Admin & Super Admin endpoint to retrieve staff transaction data in JSON format.
  *       Use this to preview report data before downloading the PDF.
  *
  *       Filters:
@@ -141,7 +142,7 @@ router.get(
  *           format: date
  *     responses:
  *       200:
- *         description: Cashier report data
+ *         description: Staff report data
  *         content:
  *           application/json:
  *             schema:
@@ -205,11 +206,11 @@ router.get(
  *                             type: string
  *                             enum: [approved, rejected, pending]
  *       403:
- *         description: Unauthorized - Admin only
+ *         description: Unauthorized - requires reports.generate.all permission
  *       404:
- *         description: Cashier not found
+ *         description: Staff member not found
  */
-router.get("/cashier/:cashierId/data", protect, authorize("admin"), getCashierReport);
+router.get("/cashier/:cashierId/data", protect, requirePermission(PERMISSIONS.REPORTS_GENERATE_ALL), getCashierReport);
 
 /**
  * @swagger
@@ -217,8 +218,8 @@ router.get("/cashier/:cashierId/data", protect, authorize("admin"), getCashierRe
  *   get:
  *     summary: Get customer financial report (JSON)
  *     description: |
- *       Admin and cashier endpoint to retrieve customer transaction data in JSON format.
- *       Cashiers can only access customers they created or are assigned to.
+ *       Available to Admin/Super Admin (any customer) and to other roles for
+ *       customers they created or are assigned to.
  *
  *       Filters:
  *       - daily
@@ -360,5 +361,5 @@ router.get("/cashier/:cashierId/data", protect, authorize("admin"), getCashierRe
  *       404:
  *         description: Customer not found
  */
-router.get("/customer/:customerId/data", protect, authorize("admin", "cashier"), getCustomerReport);
+router.get("/customer/:customerId/data", protect, requirePermission(PERMISSIONS.REPORTS_GENERATE_ALL, PERMISSIONS.REPORTS_GENERATE_OWN), getCustomerReport);
 export default router;

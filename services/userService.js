@@ -1,4 +1,5 @@
 import User from '../models/User.js'
+import Role from '../models/Role.js'
 import Loan from '../models/Loan.js'
 import Transaction from '../models/Transaction.js'
 import AuditLog from '../models/AuditLog.js'
@@ -6,63 +7,116 @@ import Customer from '../models/Customer.js'
 import { normalizePhone } from '../utils/normalizePhone.js'
 import { formatCustomer } from '../utils/publicId.js'
 import AppError from '../utils/appError.js'
+import { PERMISSIONS } from '../utils/permissions.js'
 
-export async function createCashier(payload, adminId) {
-    const { fullName, email, password, phone } = payload
+// A role can be "own" (own scoped customers) if it holds either of these.
+const OWNERSHIP_PERMISSIONS = [
+    PERMISSIONS.CUSTOMERS_VIEW_OWN,
+    PERMISSIONS.CUSTOMERS_MANAGE,
+]
+
+async function resolveRole(roleIdOrSlug) {
+    if (!roleIdOrSlug) throw new AppError('role is required', 400)
+    const role =
+        (await Role.findById(roleIdOrSlug).catch(() => null)) ||
+        (await Role.findOne({ slug: roleIdOrSlug }))
+    if (!role) throw new AppError('Role not found', 404)
+    return role
+}
+
+// Admins can create Account Managers and Cashiers (and any custom role that
+// doesn't exceed their own permissions); only a Super Admin can create
+// another Admin or Super Admin.
+function assertCanAssignRoleToNewStaff(actor, targetRole) {
+    if (actor.hasPermission(PERMISSIONS.USERS_MANAGE_ALL)) return // Super Admin
+
+    if (['admin', 'super_admin'].includes(targetRole.slug)) {
+        throw new AppError('Only a Super Admin can create an Admin or Super Admin account', 403)
+    }
+
+    const actorPermissions = actor.role.permissions || []
+    const overreach = (targetRole.permissions || []).filter(
+        (p) => !actorPermissions.includes(p),
+    )
+    if (overreach.length) {
+        throw new AppError(
+            `You cannot assign a role with permissions you don't have: ${overreach.join(', ')}`,
+            403,
+        )
+    }
+}
+
+export async function createStaff(payload, actor) {
+    const { fullName, email, password, phone, role } = payload
+
+    const targetRole = await resolveRole(role)
+    assertCanAssignRoleToNewStaff(actor, targetRole)
 
     const existing = await User.findOne({ email }).select('publicId')
     if (existing) {
-        throw new Error('Email already in use')
+        throw new AppError('Email already in use', 400)
     }
 
+    let normalizedPhoneNumber
     if (phone) {
-        const normalizedPhone = normalizePhone(phone)
+        normalizedPhoneNumber = normalizePhone(phone)
         const existingPhone = await User.findOne({
-            phone: normalizedPhone,
+            phone: normalizedPhoneNumber,
         }).select('publicId')
         if (existingPhone) {
-            throw new Error('Phone number already in use')
+            throw new AppError('Phone number already in use', 400)
         }
     }
 
-    const normalizedPhoneNumber = normalizePhone(phone)
-    const cashier = await User.create({
+    const staff = await User.create({
         fullName,
         email: email.toLowerCase().trim(),
         password,
         phone: normalizedPhoneNumber,
-        role: 'cashier',
+        role: targetRole._id,
+        createdBy: actor._id,
     })
 
-    // Audit log
     await AuditLog.create({
-        action: 'CREATE_CASHIER',
-        performedBy: adminId,
-        targetId: cashier._id,
+        action: 'CREATE_STAFF',
+        performedBy: actor._id,
+        targetId: staff._id,
+        meta: { role: targetRole.slug },
     })
 
     return {
-        id: cashier._id,
-        fullName: cashier.fullName,
-        email: cashier.email,
-        role: cashier.role,
-        publicId: cashier.publicId,
-        phone: cashier.phone,
+        id: staff._id,
+        fullName: staff.fullName,
+        email: staff.email,
+        role: { id: targetRole._id, name: targetRole.name, slug: targetRole.slug },
+        publicId: staff.publicId,
+        phone: staff.phone,
     }
 }
 
-export async function getCashiers(query) {
-    const { page = 1, limit = 10, name, email } = query
+export async function getStaff(query) {
+    const { page = 1, limit = 10, name, email, role } = query
 
-    const filter = { role: 'cashier' }
+    const filter = {}
     if (name) filter.fullName = { $regex: name, $options: 'i' }
     if (email) filter.email = { $regex: email, $options: 'i' }
 
+    if (role) {
+        const roleDoc = await resolveRole(role)
+        filter.role = roleDoc._id
+    } else {
+        // Default staff listing excludes Super Admin accounts from the
+        // general roster — they're managed separately for safety.
+        const superAdmin = await Role.findOne({ slug: 'super_admin' })
+        if (superAdmin) filter.role = { $ne: superAdmin._id }
+    }
+
     const skip = (page - 1) * limit
 
-    const [cashiers, total] = await Promise.all([
+    const [staffMembers, total] = await Promise.all([
         User.find(filter)
-            .select('publicId fullName email phone createdAt')
+            .select('publicId fullName email phone role createdAt')
+            .populate('role', 'name slug')
             .skip(skip)
             .limit(Number(limit))
             .sort({ createdAt: -1 }),
@@ -70,7 +124,7 @@ export async function getCashiers(query) {
     ])
 
     const data = await Promise.all(
-        cashiers.map(async (cashier) => {
+        staffMembers.map(async (staff) => {
             const [
                 totalCustomers,
                 totalTransactions,
@@ -79,14 +133,14 @@ export async function getCashiers(query) {
             ] = await Promise.all([
                 Customer.countDocuments({
                     $or: [
-                        { createdBy: cashier._id },
-                        { assignedTo: cashier._id },
+                        { createdBy: staff._id },
+                        { assignedTo: staff._id },
                     ],
                 }),
-                Transaction.countDocuments({ cashierId: cashier._id }),
-                Loan.countDocuments({ createdBy: cashier._id }),
+                Transaction.countDocuments({ cashierId: staff._id }),
+                Loan.countDocuments({ createdBy: staff._id }),
                 Transaction.aggregate([
-                    { $match: { cashierId: cashier._id, status: 'approved' } },
+                    { $match: { cashierId: staff._id, status: 'approved' } },
                     { $group: { _id: '$type', total: { $sum: '$amount' } } },
                 ]),
             ])
@@ -99,13 +153,14 @@ export async function getCashiers(query) {
             })
 
             return {
-                cashier: {
-                    id: cashier._id,
-                    publicId: cashier.publicId,
-                    fullName: cashier.fullName,
-                    email: cashier.email,
-                    createdAt: cashier.createdAt,
-                    phone: cashier.phone,
+                staff: {
+                    id: staff._id,
+                    publicId: staff.publicId,
+                    fullName: staff.fullName,
+                    email: staff.email,
+                    role: staff.role,
+                    createdAt: staff.createdAt,
+                    phone: staff.phone,
                 },
                 stats: {
                     totalCustomers,
@@ -130,9 +185,9 @@ export async function getCashiers(query) {
     }
 }
 
-export async function getCashierById(cashierId, query) {
-    const cashier = await User.findOne({ publicId: cashierId, role: 'cashier' })
-    if (!cashier) throw new AppError('Cashier not found', 404)
+export async function getStaffById(staffId, query) {
+    const staff = await User.findOne({ publicId: staffId }).populate('role', 'name slug')
+    if (!staff) throw new AppError('Staff member not found', 404)
 
     const {
         page = 1,
@@ -151,18 +206,18 @@ export async function getCashierById(cashierId, query) {
 
     // ── Build filters ─────────────────────────────────────────────────────────
     const customerFilter = {
-        $or: [{ createdBy: cashier._id }, { assignedTo: cashier._id }],
+        $or: [{ createdBy: staff._id }, { assignedTo: staff._id }],
         ...(hasDateFilter && { createdAt: dateFilter }),
     }
 
     const transactionFilter = {
-        cashierId: cashier._id,
+        cashierId: staff._id,
         ...(transactionType && { type: transactionType }),
         ...(hasDateFilter && { createdAt: dateFilter }),
     }
 
     const loanFilter = {
-        createdBy: cashier._id,
+        createdBy: staff._id,
         ...(hasDateFilter && { createdAt: dateFilter }),
     }
 
@@ -211,7 +266,7 @@ export async function getCashierById(cashierId, query) {
         Transaction.aggregate([
             {
                 $match: {
-                    cashierId: cashier._id,
+                    cashierId: staff._id,
                     status: 'approved',
                     ...(hasDateFilter && { createdAt: dateFilter }),
                 },
@@ -234,12 +289,13 @@ export async function getCashierById(cashierId, query) {
     })
 
     return {
-        cashier: {
-            id: cashier._id,
-            publicId: cashier.publicId,
-            fullName: cashier.fullName,
-            email: cashier.email,
-            createdAt: cashier.createdAt,
+        staff: {
+            id: staff._id,
+            publicId: staff.publicId,
+            fullName: staff.fullName,
+            email: staff.email,
+            role: staff.role,
+            createdAt: staff.createdAt,
         },
         stats: {
             totalCustomers,
@@ -278,32 +334,38 @@ export async function getCashierById(cashierId, query) {
     }
 }
 
-export async function transferCustomer(customerId, newCashierId, adminId) {
+export async function transferCustomer(customerId, newStaffId, adminId) {
     const customer = await Customer.findOne({ publicId: customerId })
     if (!customer) throw new AppError('Customer not found', 404)
 
-    const cashier = await User.findOne({ publicId: newCashierId })
-    if (!cashier || cashier.role !== 'cashier')
-        throw new AppError('Invalid cashier', 400)
+    const staff = await User.findOne({ publicId: newStaffId }).populate('role', 'permissions slug')
+    if (!staff) throw new AppError('Staff member not found', 400)
 
-    // ── Check if already assigned to this cashier ─────────────────────────────
-    const currentAssignment = customer.assignedTo || customer.createdBy
-    if (currentAssignment.toString() === cashier._id.toString()) {
-        throw new AppError('Customer is already assigned to this cashier', 400)
+    const canOwnCustomers = OWNERSHIP_PERMISSIONS.some((p) =>
+        staff.role?.permissions?.includes(p),
+    )
+    if (!canOwnCustomers) {
+        throw new AppError('That staff member\'s role cannot be assigned customers', 400)
     }
 
-    const oldCashier = customer.assignedTo || customer.createdBy
+    // ── Check if already assigned to this staff member ─────────────────────────
+    const currentAssignment = customer.assignedTo || customer.createdBy
+    if (currentAssignment.toString() === staff._id.toString()) {
+        throw new AppError('Customer is already assigned to this staff member', 400)
+    }
 
-    customer.assignedTo = cashier._id
+    const oldStaff = customer.assignedTo || customer.createdBy
+
+    customer.assignedTo = staff._id
     await customer.save()
 
     await AuditLog.create({
         action: 'TRANSFER_CUSTOMER',
         performedBy: adminId,
         targetId: customer._id,
-        metadata: {
-            from: oldCashier,
-            to: cashier._id,
+        meta: {
+            from: oldStaff,
+            to: staff._id,
         },
     })
 
@@ -315,34 +377,46 @@ export async function transferCustomer(customerId, newCashierId, adminId) {
     return formatCustomer(populated)
 }
 
-export async function deleteCashier(cashierId, adminId) {
-    const cashier = await User.findOne({ publicId: cashierId, role: 'cashier' })
-    if (!cashier) throw new AppError('Cashier not found', 404)
+export async function deleteStaff(staffId, actor) {
+    const staff = await User.findOne({ publicId: staffId }).populate('role', 'permissions slug name')
+    if (!staff) throw new AppError('Staff member not found', 404)
 
-    // ── Check if cashier still has customers ──────────────────────────────────
+    if (staff.role.slug === 'super_admin') {
+        const superAdmin = await Role.findOne({ slug: 'super_admin' })
+        const remaining = await User.countDocuments({ role: superAdmin._id })
+        if (remaining <= 1) {
+            throw new AppError('Cannot delete the last remaining Super Admin', 400)
+        }
+        if (actor.role.slug !== 'super_admin') {
+            throw new AppError('Only a Super Admin can delete a Super Admin account', 403)
+        }
+    }
+
+    // ── Check if staff member still has customers ──────────────────────────────
     const customerCount = await Customer.countDocuments({
         $or: [
-            { createdBy: cashier._id },
-            { assignedTo: cashier._id },
+            { createdBy: staff._id },
+            { assignedTo: staff._id },
         ],
     })
 
     if (customerCount > 0) {
         throw new AppError(
-            `Cashier still has ${customerCount} customer(s). Transfer them before deleting.`,
+            `Staff member still has ${customerCount} customer(s). Transfer them before deleting.`,
             400
         )
     }
 
-    await User.findByIdAndDelete(cashier._id)
+    await User.findByIdAndDelete(staff._id)
 
     await AuditLog.create({
-        action: 'DELETE_CASHIER',
-        performedBy: adminId,
-        targetId: cashier._id,          // ← also log who was deleted
-        metadata: {
-            deletedCashier: cashier.publicId,
-            fullName: cashier.fullName,
+        action: 'DELETE_STAFF',
+        performedBy: actor._id,
+        targetId: staff._id,
+        meta: {
+            deletedStaff: staff.publicId,
+            fullName: staff.fullName,
+            role: staff.role.slug,
         },
     })
 }

@@ -1,7 +1,8 @@
 import express from "express";
 import * as controller from "../controllers/loanController.js";
 import { protect } from "../middlewares/auth.js";
-import { authorize } from "../middlewares/role.js";
+import { requirePermission } from "../middlewares/permission.js";
+import { PERMISSIONS } from "../utils/permissions.js";
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
  * @swagger
  * /api/loans:
  *   post:
- *     summary: Create loan (Cashier only)
+ *     summary: Create loan (any role with loans.create — Cashier by default)
  *     tags: [Loans]
  *     security:
  *       - bearerAuth: []
@@ -84,17 +85,59 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden - Cashier only
+ *         description: Forbidden - requires loans.create permission
  *       404:
  *         description: Customer not found or not assigned to you
  */
-router.post("/", protect, authorize("cashier"), controller.createLoanController);
+router.post("/", protect, requirePermission(PERMISSIONS.LOANS_CREATE), controller.createLoanController);
+
+/**
+ * @swagger
+ * /api/loans/{loanId}/recommend:
+ *   patch:
+ *     summary: Recommend or decline a pending loan (Account Manager, Admin & Super Admin)
+ *     description: |
+ *       Account Managers review pending loan applications and attach a
+ *       recommendation for the approving Admin/Super Admin. This does not
+ *       change the loan's status — it's advisory input only.
+ *     tags: [Loans]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: loanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [recommendation]
+ *             properties:
+ *               recommendation:
+ *                 type: string
+ *                 enum: [recommended, not_recommended]
+ *               note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Loan reviewed
+ */
+router.patch(
+  "/:loanId/recommend",
+  protect,
+  requirePermission(PERMISSIONS.LOANS_REVIEW),
+  controller.recommendLoanController
+);
 
 /**
  * @swagger
  * /api/loans/{loanId}/approve:
  *   patch:
- *     summary: Approve loan (Admin only)
+ *     summary: Approve loan (Admin ≤₦200,000; Super Admin for any amount)
  *     tags: [Loans]
  *     security:
  *       - bearerAuth: []
@@ -115,7 +158,7 @@ router.post("/", protect, authorize("cashier"), controller.createLoanController)
 router.patch(
   "/:loanId/approve",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.LOANS_APPROVE_TIER1, PERMISSIONS.LOANS_APPROVE_TIER2),
   controller.approveLoan
 );
 
@@ -124,7 +167,7 @@ router.patch(
  * @swagger
  * /api/loans/{loanId}/reject:
  *   patch:
- *     summary: Reject loan (Admin only)
+ *     summary: Reject loan (Admin & Super Admin)
  *     tags: [Loans]
  *     security:
  *       - bearerAuth: []
@@ -145,15 +188,50 @@ router.patch(
 router.patch(
   "/:loanId/reject",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.LOANS_APPROVE_TIER1, PERMISSIONS.LOANS_APPROVE_TIER2),
   controller.rejectLoan
+);
+
+/**
+ * @swagger
+ * /api/loans/{loanId}/revert:
+ *   patch:
+ *     summary: Revert an approved or rejected loan back to pending (Super Admin only)
+ *     description: |
+ *       If the loan had been approved (and disbursed), its disbursement
+ *       transaction is marked "reverted" so it drops out of balance
+ *       calculations while remaining visible in the audit trail.
+ *     tags: [Loans]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: loanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Loan reverted to pending
+ *       400:
+ *         description: Only approved or rejected loans can be reverted
+ *       403:
+ *         description: Forbidden - Super Admin only
+ *       404:
+ *         description: Loan not found
+ */
+router.patch(
+  "/:loanId/revert",
+  protect,
+  requirePermission(PERMISSIONS.LOANS_REVERT),
+  controller.revertLoan
 );
 
 /**
  * @swagger
  * /api/loans:
  *   get:
- *     summary: Get all loans (Admin only)
+ *     summary: Get all loans (Admin & Super Admin)
  *     tags: [Loans]
  *     security:
  *       - bearerAuth: []
@@ -189,7 +267,7 @@ router.patch(
 router.get(
   "/",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.LOANS_VIEW_ALL),
   controller.getLoans
 );
 
@@ -197,10 +275,10 @@ router.get(
  * @swagger
  * /api/loans/{loanId}/credit-analysis:
  *   patch:
- *     summary: Fill credit analysis for a loan (Admin only)
+ *     summary: Fill credit analysis for a loan (Admin & Super Admin)
  *     description: |
  *       Fills the "For Official Use Only" section of the loan form.
- *       This is done by the credit unit after the loan has been submitted by the cashier.
+ *       This is done by the credit unit after the loan has been submitted.
  *     tags: [Loans]
  *     security:
  *       - bearerAuth: []
@@ -255,10 +333,10 @@ router.get(
  *       400:
  *         description: Cannot update credit analysis on a rejected loan
  *       403:
- *         description: Forbidden - Admin only
+ *         description: Forbidden - requires loans.credit_analysis permission
  *       404:
  *         description: Loan not found
  */
-router.patch('/:loanId/credit-analysis', protect, authorize('admin'), controller.updateCreditAnalysisController)
+router.patch('/:loanId/credit-analysis', protect, requirePermission(PERMISSIONS.LOANS_CREDIT_ANALYSIS), controller.updateCreditAnalysisController)
 
 export default router;

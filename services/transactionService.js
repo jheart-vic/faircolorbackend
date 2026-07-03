@@ -4,6 +4,8 @@ import AuditLog from '../models/AuditLog.js'
 import { getCustomerBalance } from './customerService.js'
 import AppError from '../utils/appError.js'
 import { formatTransaction } from '../utils/publicId.js'
+import { PERMISSIONS, approvalPermissionFor, approvalTierFor } from '../utils/permissions.js'
+import * as notificationService from './notificationService.js'
 
 async function createTransaction(type, payload, user) {
     const { customerId, amount, note } = payload
@@ -18,8 +20,9 @@ async function createTransaction(type, payload, user) {
 
     if (!customer) throw new AppError('Customer not found', 404) // ← move this BEFORE using customer
 
-    // 🔐 Ownership check
-    if (user.role === 'cashier') {
+    // 🔐 Ownership check — actors without a full view of transactions (e.g.
+    // Cashiers) may only transact for customers created by or assigned to them.
+    if (!user.hasPermission(PERMISSIONS.TRANSACTIONS_VIEW_ALL)) {
         const owns =
             customer.assignedTo?.toString() === user._id.toString() ||
             (customer.createdBy.toString() === user._id.toString() &&
@@ -56,6 +59,18 @@ async function createTransaction(type, payload, user) {
         targetId: transaction._id,
     })
 
+    const approvalPermission = approvalPermissionFor(amount, 'transactions')
+    await notificationService.notifyByPermission(
+        approvalPermission,
+        {
+            type: 'transaction.pending_approval',
+            title: `${type === 'deposit' ? 'Deposit' : 'Withdrawal'} pending approval`,
+            message: `${user.fullName} submitted a ${type} of ₦${amount.toLocaleString()} for ${customer.fullName} — ${approvalTierFor(amount) === 'tier2' ? 'requires Super Admin approval' : 'requires Admin approval'}.`,
+            meta: { amount, type, customerId: customer.publicId },
+            relatedId: transaction._id,
+        },
+    )
+
     const populated = await Transaction.findById(transaction._id)
         .populate('customerId', 'fullName publicId')
         .populate('cashierId', 'fullName publicId')
@@ -77,7 +92,7 @@ export async function getTransactions(query, user) {
     const filter = {}
 
     // 🔐 ROLE-BASED ACCESS
-    if (user.role === 'cashier') {
+    if (!user.hasPermission(PERMISSIONS.TRANSACTIONS_VIEW_ALL)) {
         const assignedCustomers = await Customer.find({
             $or: [
                 { assignedTo: user._id },
@@ -85,10 +100,7 @@ export async function getTransactions(query, user) {
             ],
         }).select('_id')
 
-        console.log('Assigned customers found:', assignedCustomers) // ← check this
-
         const customerIds = assignedCustomers.map((c) => c._id)
-        console.log('Customer IDs:', customerIds) // ← check this
 
         filter.customerId = { $in: customerIds }
     }
@@ -125,7 +137,7 @@ export async function getTransactions(query, user) {
     }
 }
 
-export async function approveTransaction(transactionId, adminId) {
+export async function approveTransaction(transactionId, approver) {
     const transaction = await Transaction.findOne({ publicId: transactionId })
 
     if (!transaction) throw new AppError('Transaction not found', 404)
@@ -134,15 +146,34 @@ export async function approveTransaction(transactionId, adminId) {
         throw new AppError('Transaction already processed', 400)
     }
 
+    // Admin approves up to ₦200,000; Super Admin approves everything above it.
+    const requiredPermission = approvalPermissionFor(transaction.amount, 'transactions')
+    if (!approver.hasPermission(requiredPermission)) {
+        throw new AppError(
+            requiredPermission === PERMISSIONS.TRANSACTIONS_APPROVE_TIER2
+                ? 'Only a Super Admin can approve transactions above ₦200,000'
+                : 'You are not authorized to approve this transaction',
+            403,
+        )
+    }
+
     transaction.status = 'approved'
-    transaction.approvedBy = adminId
+    transaction.approvedBy = approver._id
 
     await transaction.save()
 
     await AuditLog.create({
         action: 'APPROVE_TRANSACTION',
-        performedBy: adminId,
+        performedBy: approver._id,
         targetId: transaction._id,
+    })
+
+    await notificationService.notifyUsers([transaction.cashierId], {
+        type: 'transaction.approved',
+        title: 'Transaction approved',
+        message: `Your ${transaction.type} of ₦${transaction.amount.toLocaleString()} (${transaction.publicId}) was approved by ${approver.fullName}.`,
+        meta: { amount: transaction.amount, type: transaction.type },
+        relatedId: transaction._id,
     })
 
     const populated = await Transaction.findById(transaction._id)
@@ -157,10 +188,28 @@ export async function rejectTransaction(transactionId, adminId) {
 
     if (!transaction) throw new AppError('Transaction not found', 404)
 
+    if (transaction.status !== 'pending') {
+        throw new AppError('Transaction already processed', 400)
+    }
+
     transaction.status = 'rejected'
     transaction.rejectedBy = adminId
 
     await transaction.save()
+
+    await AuditLog.create({
+        action: 'REJECT_TRANSACTION',
+        performedBy: adminId,
+        targetId: transaction._id,
+    })
+
+    await notificationService.notifyUsers([transaction.cashierId], {
+        type: 'transaction.rejected',
+        title: 'Transaction rejected',
+        message: `Your ${transaction.type} of ₦${transaction.amount.toLocaleString()} (${transaction.publicId}) was rejected.`,
+        meta: { amount: transaction.amount, type: transaction.type },
+        relatedId: transaction._id,
+    })
 
     return transaction
 }

@@ -4,7 +4,7 @@ export async function createLoanController(req, res, next) {
   try {
     const data = await loanService.createLoan(
       req.body,
-      req.user._id
+      req.user
     );
 
     res.status(201).json({ success: true, data });
@@ -12,6 +12,21 @@ export async function createLoanController(req, res, next) {
     next(err);
   }
 }
+
+export async function recommendLoanController(req, res, next) {
+  try {
+    const data = await loanService.recommendLoan(
+      req.params.loanId,
+      req.body,
+      req.user
+    );
+
+    res.status(200).json({ success: true, message: "Loan reviewed", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateCreditAnalysisController(req, res, next) {
     try {
         const data = await loanService.updateCreditAnalysis(
@@ -30,7 +45,7 @@ export async function approveLoan(req, res, next) {
   try {
     const data = await loanService.approveLoan(
       req.params.loanId,
-      req.user._id
+      req.user
     );
 
     res.json({
@@ -52,6 +67,22 @@ export async function rejectLoan(req, res, next) {
     res.json({
       success: true,
       message: "Loan rejected successfully",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function revertLoan(req, res, next) {
+  try {
+    const data = await loanService.revertLoanToPending(
+      req.params.loanId,
+      req.user
+    );
+    res.json({
+      success: true,
+      message: "Loan reverted to pending",
       data,
     });
   } catch (err) {

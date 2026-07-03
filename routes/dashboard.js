@@ -1,7 +1,8 @@
 import express from "express";
 import * as controller from "../controllers/dashboardController.js";
 import { protect } from "../middlewares/auth.js";
-import { authorize } from "../middlewares/role.js";
+import { requirePermission } from "../middlewares/permission.js";
+import { PERMISSIONS } from "../utils/permissions.js";
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
  * @swagger
  * /api/dashboard/admin:
  *   get:
- *     summary: Get admin dashboard data
+ *     summary: Get admin dashboard data (Admin & Super Admin)
  *     description: Returns financial summaries, pending counts, and daily cashier performance for the selected time range.
  *     tags:
  *       - Dashboard
@@ -116,20 +117,50 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       403:
- *         description: Forbidden (Admin only)
+ *         description: Forbidden - requires Admin/Super Admin level report access
  */
 router.get(
   "/admin",
   protect,
-  authorize("admin"),
+  requirePermission(PERMISSIONS.REPORTS_GENERATE_ALL, PERMISSIONS.TRANSACTIONS_VIEW_ALL),
   controller.getAdminDashboard
+);
+
+/**
+ * @swagger
+ * /api/dashboard/account-manager:
+ *   get:
+ *     summary: Get Account Manager dashboard data (Account Manager, Admin & Super Admin)
+ *     description: >
+ *       Returns the Account Manager's assigned customers, pending loans on
+ *       those customers, and repayment tracking. Supports time-based
+ *       filtering.
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: filter
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [daily, weekly, monthly, quarterly, custom]
+ *     responses:
+ *       200:
+ *         description: Account Manager dashboard data fetched successfully
+ */
+router.get(
+  "/account-manager",
+  protect,
+  requirePermission(PERMISSIONS.LOANS_REVIEW),
+  controller.getAccountManagerDashboard
 );
 
 /**
  * @swagger
  * /api/dashboard/cashier:
  *   get:
- *     summary: Get cashier dashboard data
+ *     summary: Get cashier dashboard data (any role that creates transactions — Cashier by default)
  *     description: >
  *       Returns transaction summaries (deposits, withdrawals, loans) and the total number of active customers
  *       created by the logged-in cashier. Supports time-based filtering.
@@ -190,12 +221,12 @@ router.get(
  *       401:
  *         description: Unauthorized – user must be logged in
  *       403:
- *         description: Forbidden – only cashier role allowed
+ *         description: Forbidden - requires transactions.create or transactions.view.own permission
  */
 router.get(
   "/cashier",
   protect,
-  authorize("cashier"),
+  requirePermission(PERMISSIONS.TRANSACTIONS_CREATE, PERMISSIONS.TRANSACTIONS_VIEW_OWN),
   controller.getCashierDashboard
 );
 

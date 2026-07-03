@@ -6,6 +6,7 @@ import { getCustomerBalance } from './customerService.js'
 import User from '../models/User.js'
 import { formatDateRange, getDateRange } from '../utils/dateFilter.js'
 import AppError from '../utils/appError.js'
+import { PERMISSIONS } from '../utils/permissions.js'
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 const C = {
@@ -591,7 +592,7 @@ export async function generateCustomerReport(customerId, user, res, query) {
     const customer = await Customer.findOne({ publicId: customerId })
     if (!customer) throw new AppError('Customer not found', 404)
 
-    if (user.role === 'cashier') {
+    if (!user.hasPermission(PERMISSIONS.REPORTS_GENERATE_ALL)) {
         const isOwner =
             customer.createdBy.toString() === user._id.toString() ||
             (customer.assignedTo &&
@@ -660,8 +661,8 @@ export async function generateCustomerReport(customerId, user, res, query) {
 
 // ── Cashier Report ────────────────────────────────────────────────────────────
 export async function generateCashierReport(query, adminUser, res) {
-    if (adminUser.role !== 'admin')
-        throw new AppError('Only admin can generate cashier reports', 403)
+    if (!adminUser.hasPermission(PERMISSIONS.REPORTS_GENERATE_ALL))
+        throw new AppError('Only Admin or Super Admin can generate staff reports', 403)
 
     const { cashierId, filter, startDate, endDate } = query
     const cashier = await User.findOne({ publicId: cashierId })
@@ -735,8 +736,8 @@ export async function generateCashierReport(query, adminUser, res) {
 
 // ── Cashier Report JSON ───────────────────────────────────────────────────────
 export async function getCashierReportData(cashierId, query, adminUser, res) {
-    if (adminUser.role !== 'admin')
-        throw new AppError('Only admin can view cashier reports', 403)
+    if (!adminUser.hasPermission(PERMISSIONS.REPORTS_GENERATE_ALL))
+        throw new AppError('Only Admin or Super Admin can view staff reports', 403)
 
     const { filter, startDate, endDate } = query
     const cashier = await User.findOne({ publicId: cashierId })
@@ -797,7 +798,7 @@ export async function getCustomerReportData(customerId, user, res, query) {
   const customer = await Customer.findOne({ publicId: customerId });
   if (!customer) throw new AppError("Customer not found", 404);
 
-  if (user.role === "cashier") {
+  if (!user.hasPermission(PERMISSIONS.REPORTS_GENERATE_ALL)) {
     const isOwner =
       customer.createdBy.toString() === user._id.toString() ||
       (customer.assignedTo && customer.assignedTo.toString() === user._id.toString());

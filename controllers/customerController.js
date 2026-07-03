@@ -34,6 +34,23 @@ export async function approveCustomer(req, res, next) {
   }
 }
 
+export async function revertCustomer(req, res, next) {
+  try {
+    const data = await customerService.revertCustomerToPending(
+      req.params.customerId,
+      req.user
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Customer reverted to pending",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getCustomers(req, res, next) {
   try {
     const { status, accountStatus } = req.query

@@ -1,96 +1,7 @@
-// import mongoose from "mongoose";
-// import bcrypt from "bcryptjs";
-// import { generatePublicId } from "../utils/publicId.js";
-
-// const ROLE_PREFIX = {
-//   cashier: "CASH",
-//   staff: "STF",
-//   manager: "MGR",
-// };
-
-// const userSchema = new mongoose.Schema(
-//     {
-//         fullName: {
-//             type: String,
-//             required: true,
-//             trim: true,
-//         },
-
-//         email: {
-//             type: String,
-//             required: true,
-//             unique: true,
-//             lowercase: true,
-//             trim: true,
-//         },
-//        phone:{ type: String, trim: true, unique:true },
-
-//         password: {
-//             type: String,
-//             required: true,
-//             minlength: 6,
-//             select: false,
-//         },
-
-//         role: {
-//             type: String,
-//             enum: ['admin', 'cashier'],
-//             default: 'cashier',
-//         },
-//         publicId: {
-//             type: String,
-//             unique: true,
-//             index: true,
-//             required: false,
-//         },
-//         isActive: {
-//             type: Boolean,
-//             default: true,
-//         },
-//     refreshToken: {
-//       type: String,
-//       select: false,         // never returned in queries by default
-//     },
-//     refreshTokenExpiresAt: {
-//       type: Date,
-//       select: false,
-//     },
-//   },
-//     { timestamps: true },
-// )
-
-// // Hash password before save
-// userSchema.pre("save", async function (next) {
-//   if (!this.isModified("password")) return next();
-//   this.password = await bcrypt.hash(this.password, 10);
-//   next();
-// });
-
-// userSchema.pre("save", function (next) {
-//   if (!this.publicId && this.role !== "admin") {
-//     const prefix = ROLE_PREFIX[this.role]
-//     this.publicId = generatePublicId(prefix);
-//   }
-//   next();
-// });
-
-// // Compare password
-// userSchema.methods.comparePassword = async function (candidatePassword) {
-//   return bcrypt.compare(candidatePassword, this.password);
-// };
-
-// export default mongoose.model("User", userSchema);
-
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { generatePublicId } from "../utils/publicId.js";
-
-const ROLE_PREFIX = {
-  cashier: "CASH",
-  staff: "STF",
-  manager: "MGR",
-};
 
 const userSchema = new mongoose.Schema(
   {
@@ -106,17 +17,19 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    phone: { type: String, trim: true, unique: true },
+    phone: { type: String, trim: true, unique: true, sparse: true },
     password: {
       type: String,
       required: true,
       minlength: 6,
       select: false,
     },
+    // Roles are now data (see models/Role.js) rather than a fixed enum, so
+    // Super Admins and Admins can create and assign new roles at runtime.
     role: {
-      type: String,
-      enum: ["admin", "cashier"],
-      default: "cashier",
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+      required: true,
     },
     publicId: {
       type: String,
@@ -127,6 +40,10 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
 
     // ── Refresh token fields ──────────────────────────────
@@ -150,12 +67,18 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-userSchema.pre("save", function (next) {
-  if (!this.publicId && this.role !== "admin") {
-    const prefix = ROLE_PREFIX[this.role];
+userSchema.pre("save", async function (next) {
+  if (this.publicId || !this.role) return next();
+
+  try {
+    const Role = mongoose.model("Role");
+    const role = await Role.findById(this.role).select("prefix slug");
+    const prefix = role?.prefix || "STF";
     this.publicId = generatePublicId(prefix);
+    next();
+  } catch (err) {
+    next(err);
   }
-  next();
 });
 
 // ── Instance methods ──────────────────────────────────────
@@ -186,6 +109,12 @@ userSchema.methods.isRefreshTokenValid = function (token) {
 userSchema.methods.clearRefreshToken = function () {
   this.refreshToken = undefined;
   this.refreshTokenExpiresAt = undefined;
+};
+
+// Convenience helper — checks the (populated) role's permission list.
+userSchema.methods.hasPermission = function (permission) {
+  const perms = this.role?.permissions || [];
+  return perms.includes(permission);
 };
 
 export default mongoose.model("User", userSchema);
