@@ -8,6 +8,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed": "node scripts/admin.js",
+    "promote:super-admin": "node scripts/promote.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Victor",

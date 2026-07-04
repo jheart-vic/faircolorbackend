@@ -9,9 +9,23 @@ import {
 export async function loginUser(payload) {
   const { email, password } = payload;
 
-  const user = await User.findOne({ email })
-    .select("+password +refreshToken +refreshTokenExpiresAt")
-    .populate("role", "name slug permissions");
+  let user;
+  try {
+    user = await User.findOne({ email })
+      .select("+password +refreshToken +refreshTokenExpiresAt")
+      .populate("role", "name slug permissions");
+  } catch (err) {
+    // A user record still holding the pre-migration string role (e.g.
+    // "admin") instead of a Role reference will fail here. Surface a clear,
+    // actionable message instead of leaking the raw Mongoose cast error.
+    if (err.name === "CastError" && err.path === "role") {
+      throw new AppError(
+        "This account has an outdated role configuration and needs to be migrated by a Super Admin before it can log in.",
+        409
+      );
+    }
+    throw err;
+  }
 
   if (!user || !(await user.comparePassword(password))) {
     throw new AppError("Invalid email or password", 401);
@@ -19,6 +33,13 @@ export async function loginUser(payload) {
 
   if (!user.isActive) {
     throw new AppError("Account is deactivated", 403);
+  }
+
+  if (!user.role) {
+    throw new AppError(
+      "This account has no role assigned. Contact a Super Admin.",
+      403
+    );
   }
 
   const accessToken = signAccessToken(user._id);
