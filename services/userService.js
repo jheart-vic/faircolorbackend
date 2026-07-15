@@ -15,11 +15,15 @@ const OWNERSHIP_PERMISSIONS = [
     PERMISSIONS.CUSTOMERS_MANAGE,
 ]
 
-async function resolveRole(roleIdOrSlug) {
-    if (!roleIdOrSlug) throw new AppError('role is required', 400)
+async function resolveRole(roleIdOrSlugOrName) {
+    if (!roleIdOrSlugOrName) throw new AppError('role is required', 400)
+    const value = String(roleIdOrSlugOrName).trim()
     const role =
-        (await Role.findById(roleIdOrSlug).catch(() => null)) ||
-        (await Role.findOne({ slug: roleIdOrSlug }))
+        (await Role.findById(value).catch(() => null)) ||
+        (await Role.findOne({ slug: value.toLowerCase() })) ||
+        (await Role.findOne({
+            name: { $regex: `^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+        }))
     if (!role) throw new AppError('Role not found', 404)
     return role
 }
